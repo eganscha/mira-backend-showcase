@@ -1,0 +1,13 @@
+# OS-generated files
+.DS_Store
+
+# Build outputs
+target/
+
+# IDE and editor files
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
