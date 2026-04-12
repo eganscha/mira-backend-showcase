@@ -28,6 +28,7 @@ Pflegen Sie das Protokoll möglichst zeitnah, damit die Git-Historie die Entwick
 | Datum | Anwender der KI | Werkzeug | Nutzung kurz beschrieben | Übernahme und Anpassung kurz beschrieben |
 | --- |-----------------| --- | --- | --- |
 | 2026-04-12 | Eugen Ganscha   | OpenAI Codex | Root-`.gitignore` an uebliche Java/Maven- und IDE-Konventionen angepasst | Vorschlaege geprueft, auf das Repository reduziert und als knappe Ignore-Regeln uebernommen |
+| 2026-04-12 | Eugen Ganscha   | OpenAI Codex | Root-`.dockerignore` an uebliche Docker-Konventionen angepasst | Vorschlaege geprueft, auf das Repository reduziert und als knappe Ignore-Regeln uebernommen |
 |  |                 |  |  |  |
 |  |                 |  |  |  |
 |  |                 |  |  |  |
