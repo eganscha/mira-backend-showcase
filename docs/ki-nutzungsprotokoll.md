@@ -2,10 +2,10 @@
 
 ## Angaben zur Arbeit
 
-- Gruppenname:
+- Gruppenname: **Mudkip**
 - Titel der Studienarbeit:
-- KI genutzt: ja / nein
-- Verwendete KI-Werkzeuge:
+- KI genutzt: **ja**
+- Verwendete KI-Werkzeuge: **OpenAI Codex, ChatGPT**
 
 Wenn keine KI genutzt wurde, reicht hier die Angabe "nein". In diesem Fall müssen die folgenden Abschnitte nicht ausgefüllt werden.
 
@@ -25,14 +25,14 @@ Tragen Sie hier die wesentlichen Nutzungen ein.
 Wenn ähnliche Nutzungen in engem Zusammenhang stehen, können Sie sie zusammenfassen.
 Pflegen Sie das Protokoll möglichst zeitnah, damit die Git-Historie die Entwicklung nachvollziehbar macht. Nutzen Sie KI, um Ihren Promtverlauf entsprechnd dieser Vorlage festzuhalten.  
 
-| Datum | Anwender der KI | Werkzeug | Nutzung kurz beschrieben | Übernahme und Anpassung kurz beschrieben |
-| --- |-----------------| --- | --- | --- |
-| 2026-04-12 | Eugen Ganscha   | OpenAI Codex | Root-`.gitignore` an uebliche Java/Maven- und IDE-Konventionen angepasst | Vorschlaege geprueft, auf das Repository reduziert und als knappe Ignore-Regeln uebernommen |
-| 2026-04-12 | Eugen Ganscha   | OpenAI Codex | Root-`.dockerignore` an uebliche Docker-Konventionen angepasst | Vorschlaege geprueft, auf das Repository reduziert und als knappe Ignore-Regeln uebernommen |
-|  |                 |  |  |  |
-|  |                 |  |  |  |
-|  |                 |  |  |  |
-|  |                 |  |  |  |
+| Datum      | Anwender der KI   | Werkzeug     | Nutzung kurz beschrieben | Übernahme und Anpassung kurz beschrieben |
+|------------|-------------------|--------------| --- | --- |
+| 2026-04-12 | Eugen Ganscha     | OpenAI Codex | Root-`.gitignore` an uebliche Java/Maven- und IDE-Konventionen angepasst | Vorschlaege geprueft, auf das Repository reduziert und als knappe Ignore-Regeln uebernommen |
+| 2026-04-12 | Eugen Ganscha     | OpenAI Codex | Root-`.dockerignore` an uebliche Docker-Konventionen angepasst | Vorschlaege geprueft, auf das Repository reduziert und als knappe Ignore-Regeln uebernommen |
+| 2026-04-13 | Nataliia Shcherba | OpenAI Codex | Variablen in `docker compose` und in `application.yaml` von statischen Werten auf Umgebungsvariablen umgestellt sowie eine `.env.example` erstellt | Vorschlaege geprueft, an die Projektstruktur angepasst und fuer die lokale Team-Entwicklung uebernommen |
+|            |                   |              |  |  |
+|            |                   |              |  |  |
+|            |                   |              |  |  |
 
 ## Optionale ergänzende Hinweise
 
