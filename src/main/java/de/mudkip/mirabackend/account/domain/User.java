@@ -120,15 +120,16 @@ public class User {
         return birthdate;
     }
 
-    public Set<Permission> getDirectPermissions() {
-        return Collections.unmodifiableSet(directPermissions);
-    }
-
     public Set<AccessibilityPreference> getAccessibilityPreferences() {
         return Collections.unmodifiableSet(accessibilityPreferences);
     }
 
     public Set<UserCredential> getUserCredentials() {
         return Collections.unmodifiableSet(userCredentials);
+    }
+
+    public Set<Permission> getPermissions() {
+        // Later: Calculate Permissions based on Credentials and E-Mail verification status
+        return Collections.unmodifiableSet(directPermissions);
     }
 }
