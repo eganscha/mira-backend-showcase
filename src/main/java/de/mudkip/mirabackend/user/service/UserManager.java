@@ -3,6 +3,8 @@ package de.mudkip.mirabackend.user.service;
 import de.mudkip.mirabackend.user.domain.User;
 import de.mudkip.mirabackend.user.domain.UserRepository;
 import de.mudkip.mirabackend.auth.api.dto.RegisterUserRequest;
+import de.mudkip.mirabackend.user.service.exception.EmailAlreadyExistsException;
+import de.mudkip.mirabackend.user.service.exception.UsernameAlreadyExistsException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -29,11 +31,11 @@ public class UserManager {
 
     public User createUser(RegisterUserRequest request) {
         if (userRepository.existsByUsername(request.username())) {
-            throw new IllegalArgumentException("Username already exists: " + request.username());
+            throw new UsernameAlreadyExistsException("Username already exists: " + request.username());
         }
 
         if (userRepository.existsByEmail(request.email())) {
-            throw new IllegalArgumentException("Email already exists: " + request.email());
+            throw new EmailAlreadyExistsException("Email already exists: " + request.email());
         }
 
         User userToSave = new User(
