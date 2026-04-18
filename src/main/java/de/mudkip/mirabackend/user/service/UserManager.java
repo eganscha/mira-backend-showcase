@@ -1,5 +1,7 @@
-package de.mudkip.mirabackend.user.domain;
+package de.mudkip.mirabackend.user.service;
 
+import de.mudkip.mirabackend.user.domain.User;
+import de.mudkip.mirabackend.user.domain.UserRepository;
 import de.mudkip.mirabackend.user.domain.dto.CreateUserRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
