@@ -1,4 +1,4 @@
-package de.mudkip.mirabackend.auth.security.config;
+package de.mudkip.mirabackend.security.security.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

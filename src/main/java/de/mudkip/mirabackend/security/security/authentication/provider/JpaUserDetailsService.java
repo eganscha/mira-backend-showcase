@@ -1,6 +1,6 @@
-package de.mudkip.mirabackend.auth.security.authentication.provider;
+package de.mudkip.mirabackend.security.security.authentication.provider;
 
-import de.mudkip.mirabackend.auth.security.user.SecurityUser;
+import de.mudkip.mirabackend.security.security.user.SecurityUser;
 import de.mudkip.mirabackend.user.domain.User;
 import de.mudkip.mirabackend.user.domain.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;

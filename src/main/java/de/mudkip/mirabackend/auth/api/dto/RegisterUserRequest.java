@@ -1,10 +1,10 @@
-package de.mudkip.mirabackend.user.domain.dto;
+package de.mudkip.mirabackend.auth.api.dto;
 
 import de.mudkip.mirabackend.user.domain.AccountType;
 
 import java.time.LocalDate;
 
-public record CreateUserRequest(
+public record RegisterUserRequest(
         String username,
         String email,
         String rawPassword,

@@ -1,4 +1,4 @@
-package de.mudkip.mirabackend.auth.security.user;
+package de.mudkip.mirabackend.security.security.user;
 
 import de.mudkip.mirabackend.user.domain.User;
 import org.jspecify.annotations.NonNull;

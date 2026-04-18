@@ -2,7 +2,7 @@ package de.mudkip.mirabackend.user.service;
 
 import de.mudkip.mirabackend.user.domain.User;
 import de.mudkip.mirabackend.user.domain.UserRepository;
-import de.mudkip.mirabackend.user.domain.dto.CreateUserRequest;
+import de.mudkip.mirabackend.auth.api.dto.RegisterUserRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,7 +27,7 @@ public class UserManager {
                 });
     }
 
-    public User createUser(CreateUserRequest request) {
+    public User createUser(RegisterUserRequest request) {
         if (userRepository.existsByUsername(request.username())) {
             throw new IllegalArgumentException("Username already exists: " + request.username());
         }

@@ -1,4 +1,4 @@
-package de.mudkip.mirabackend.auth.domain.permission;
+package de.mudkip.mirabackend.security.domain;
 
 public enum Permission {
     CAN_CHAT("Allows chat usage"),
