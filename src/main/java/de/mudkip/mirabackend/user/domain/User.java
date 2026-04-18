@@ -92,6 +92,14 @@ public class User {
         return id;
     }
 
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
     public boolean isEmailVerified() {
         return emailVerified;
     }
