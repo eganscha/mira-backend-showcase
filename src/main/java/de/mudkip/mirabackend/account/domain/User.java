@@ -4,6 +4,7 @@ import de.mudkip.mirabackend.auth.domain.permission.Permission;
 import jakarta.persistence.*;
 
 import java.util.HashSet;
+import java.time.LocalDate;
 import java.util.Set;
 import java.util.UUID;
 
@@ -31,6 +32,16 @@ public class User {
     private String lastName;
 
     @Column(nullable = false)
+    private boolean emailVerified = false;
+
+    @Column(nullable = false, length = 20)
+    @Enumerated(EnumType.STRING)
+    private AccountType accountType;
+
+    @Column(nullable = false)
+    private LocalDate birthdate;
+
+    @Column(nullable = false)
     private boolean enabled = true;
 
     @Column(nullable = false)
@@ -51,15 +62,34 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Set<Permission> directPermissions = new HashSet<>();
 
+    @ElementCollection
+    @CollectionTable(
+            name = "user_accessibility_preferences",
+            joinColumns = @JoinColumn(name = "user_id")
+    )
+    @Column(name = "preference")
+    @Enumerated(EnumType.STRING)
+    private Set<AccessibilityPreference> accessibilityPreferences = new HashSet<>();
+
     protected User() {
     }
 
-    public User(String username, String email, String password, String firstName, String lastName) {
+    public User(
+            String username,
+            String email,
+            String password,
+            String firstName,
+            String lastName,
+            AccountType accountType,
+            LocalDate birthdate
+    ) {
         this.username = username;
         this.email = email;
         this.password = password;
         this.firstName = firstName;
         this.lastName = lastName;
+        this.accountType = accountType;
+        this.birthdate = birthdate;
     }
 
     public UUID getUserUUID() {
@@ -104,6 +134,22 @@ public class User {
 
     public void changeLastName(String lastName) {
         this.lastName = lastName;
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerified;
+    }
+
+    public void verifyEmail() {
+        this.emailVerified = true;
+    }
+
+    public AccountType getAccountType() {
+        return accountType;
+    }
+
+    public LocalDate getBirthdate() {
+        return birthdate;
     }
 
     public boolean isEnabled() {
@@ -168,5 +214,21 @@ public class User {
 
     public boolean hasDirectPermission(Permission permission) {
         return this.directPermissions.contains(permission);
+    }
+
+    public Set<AccessibilityPreference> getAccessibilityPreferences() {
+        return accessibilityPreferences;
+    }
+
+    public void addAccessibilityPreference(AccessibilityPreference preference) {
+        this.accessibilityPreferences.add(preference);
+    }
+
+    public void removeAccessibilityPreference(AccessibilityPreference preference) {
+        this.accessibilityPreferences.remove(preference);
+    }
+
+    public boolean hasAccessibilityPreference(AccessibilityPreference preference) {
+        return this.accessibilityPreferences.contains(preference);
     }
 }
