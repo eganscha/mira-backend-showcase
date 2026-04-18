@@ -8,6 +8,6 @@ public class HelloController {
 
     @GetMapping("/hello")
     public String hello() {
-        return "Hello from Mira Backend";
+        return "Hello from Mira Backend! :)";
     }
 }
