@@ -1,4 +1,4 @@
-package de.mudkip.mirabackend.account.domain.credential;
+package de.mudkip.mirabackend.user.domain.credential;
 
 public enum CredentialType {
 

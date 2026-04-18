@@ -1,7 +1,7 @@
-package de.mudkip.mirabackend.account.domain.credential.mapping;
+package de.mudkip.mirabackend.user.domain.credential.mapping;
 
-import de.mudkip.mirabackend.account.domain.User;
-import de.mudkip.mirabackend.account.domain.credential.Credential;
+import de.mudkip.mirabackend.user.domain.User;
+import de.mudkip.mirabackend.user.domain.credential.Credential;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;

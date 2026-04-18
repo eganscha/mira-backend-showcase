@@ -1,4 +1,4 @@
-package de.mudkip.mirabackend.account.domain.credential.mapping;
+package de.mudkip.mirabackend.user.domain.credential.mapping;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;

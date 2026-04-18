@@ -1,4 +1,4 @@
-package de.mudkip.mirabackend.account.domain;
+package de.mudkip.mirabackend.user.domain;
 
 public enum AccessibilityPreference {
     EASY_LANGUAGE,

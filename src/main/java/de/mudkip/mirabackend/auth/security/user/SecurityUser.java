@@ -1,13 +1,12 @@
 package de.mudkip.mirabackend.auth.security.user;
 
-import de.mudkip.mirabackend.account.domain.User;
+import de.mudkip.mirabackend.user.domain.User;
 import org.jspecify.annotations.NonNull;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.Collection;
-import java.util.List;
 
 public class SecurityUser implements UserDetails {
 

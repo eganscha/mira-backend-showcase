@@ -1,7 +1,7 @@
-package de.mudkip.mirabackend.account.domain.credential.seeder;
+package de.mudkip.mirabackend.user.domain.credential.seeder;
 
-import de.mudkip.mirabackend.account.domain.credential.Credential;
-import de.mudkip.mirabackend.account.domain.credential.CredentialType;
+import de.mudkip.mirabackend.user.domain.credential.Credential;
+import de.mudkip.mirabackend.user.domain.credential.CredentialType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;

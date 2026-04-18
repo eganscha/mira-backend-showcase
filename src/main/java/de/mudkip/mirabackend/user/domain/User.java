@@ -1,6 +1,6 @@
-package de.mudkip.mirabackend.account.domain;
+package de.mudkip.mirabackend.user.domain;
 
-import de.mudkip.mirabackend.account.domain.credential.mapping.UserCredential;
+import de.mudkip.mirabackend.user.domain.credential.mapping.UserCredential;
 import de.mudkip.mirabackend.auth.domain.permission.Permission;
 import jakarta.persistence.*;
 
