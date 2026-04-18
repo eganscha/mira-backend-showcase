@@ -7,7 +7,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
-public class WebAuthorizationConfig {
+public class SecurityConfig {
 
     @Bean
     SecurityFilterChain configure(HttpSecurity http) throws Exception {
@@ -18,6 +18,16 @@ public class WebAuthorizationConfig {
         );
 
         return http.build();
+    }
+
+    @Bean
+    public UserDetailsService userDetailsService(DataSource dataSource) {
+        return new JdbcUserDetailsManager(dataSource);
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return NoOpPasswordEncoder.getInstance();
     }
 
 }
