@@ -16,3 +16,10 @@ spring:
       hibernate:
         format_sql: true
     open-in-view: false
+
+logging:
+  file:
+    name: logs/mira.log
+  level:
+    root: INFO
+    de.mudkip.mirabackend: DEBUG
