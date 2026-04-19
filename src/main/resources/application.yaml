@@ -19,7 +19,7 @@ spring:
 
 logging:
   file:
-    name: logs/mira.log
+    name: ${LOGS_DIR:/app/logs}/${LOG_FILE_NAME:mira.log}
   level:
     root: INFO
     de.mudkip.mirabackend: DEBUG

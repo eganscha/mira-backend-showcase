@@ -34,3 +34,8 @@
 2026-04-19T09:42:48.801Z  INFO 113 --- [mirabackend] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
 2026-04-19T09:42:48.818Z  INFO 113 --- [mirabackend] [http-nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 17 ms
 2026-04-19T09:42:48.839Z DEBUG 113 --- [mirabackend] [http-nio-8080-exec-1] d.m.m.user.service.UserManager           : Received request to register user
+2026-04-19T10:03:13.840Z  INFO 113 --- [mirabackend] [SpringApplicationShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-04-19T10:03:13.846Z  INFO 113 --- [mirabackend] [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-04-19T10:03:13.851Z  INFO 113 --- [mirabackend] [SpringApplicationShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-04-19T10:03:13.867Z  INFO 113 --- [mirabackend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-6 - Shutdown initiated...
+2026-04-19T10:03:13.871Z  INFO 113 --- [mirabackend] [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-6 - Shutdown completed.

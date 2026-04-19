@@ -26,7 +26,7 @@ public class AuthController {
 
     @PostMapping("/auth/register")
     public ResponseEntity<?> register(@RequestBody RegisterUserRequest request) {
-        log.debug("Received request to register user");
+        log.debug("Received request to register user.");
 
         try {
             User createdUser = userManager.createUser(request);
