@@ -4,11 +4,13 @@ import de.mudkip.mirabackend.security.security.user.SecurityUser;
 import de.mudkip.mirabackend.user.domain.User;
 import de.mudkip.mirabackend.user.domain.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Primary;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+@Primary
 @Service
 public class JpaUserDetailsService implements UserDetailsService {
 
