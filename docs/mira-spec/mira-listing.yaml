@@ -53,15 +53,6 @@ paths:
             format: double
             minimum: 0
 
-        - name: q
-          in: query
-          required: false
-          description: Full-text search query for title or description.
-          schema:
-            type: string
-            minLength: 1
-            maxLength: 200
-
         - name: page
           in: query
           required: false
@@ -526,14 +517,6 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: q
-          in: query
-          required: false
-          description: Full-text search query for title or description.
-          schema:
-            type: string
-            minLength: 1
-            maxLength: 200
         - name: page
           in: query
           required: false
