@@ -1,0 +1,1551 @@
+openapi: 3.1.0
+info:
+  title: Mira OpenAPI Spec
+  version: v1
+  description: >
+    This API describes the booking subsystem of Mira, a platform for offering and booking services.
+    It enables consumers to discover provider availability, request bookings against published listings, providers to accept or refuse those requests, and both parties to track the booking lifecycle from request through completion. 
+
+servers:
+  - url: http://127.0.0.1:8080
+    description: Local development server for the Mira REST API
+
+paths:
+  /v1/providers/{providerId}/availability:
+    parameters:
+      - $ref: '#/components/parameters/ProviderIdParam'
+    get:
+      summary: Get provider availability
+      description: >
+        Returns the provider's computed availability over the requested date range. For each day, returns the working hours envelope and the free windows within it, after applying schedule exceptions and active bookings.
+      tags:
+        - Bookings
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: Inclusive start date of the requested range, in ISO-8601 date format.
+          schema:
+            type: string
+            format: date
+            example: "2026-04-01"
+        - name: to
+          in: query
+          required: true
+          description: Inclusive end date of the requested range, in ISO-8601 date format. The range may not exceed 31 days.
+          schema:
+            type: string
+            format: date
+            example: "2026-04-30"
+      responses:
+        '200':
+          description: Availability retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderAvailabilityResponse'
+              examples:
+                default:
+                  summary: Example provider availability
+                  value:
+                    providerId: "22bb22bb-2222-2222-2222-bbbbbbbbbbbb"
+                    timezone: "Europe/Berlin"
+                    days:
+                      - date: "2026-04-27"
+                        workingHours:
+                          - start: "2026-04-27T07:00:00Z"
+                            end: "2026-04-27T15:00:00Z"
+                        freeWindows:
+                          - start: "2026-04-27T07:00:00Z"
+                            end: "2026-04-27T10:00:00Z"
+                          - start: "2026-04-27T13:00:00Z"
+                            end: "2026-04-27T15:00:00Z"
+                      - date: "2026-04-28"
+                        workingHours:
+                          - start: "2026-04-28T07:00:00Z"
+                            end: "2026-04-28T17:00:00Z"
+                        freeWindows:
+                          - start: "2026-04-28T09:00:00Z"
+                            end: "2026-04-28T11:00:00Z"
+                          - start: "2026-04-28T12:00:00Z"
+                            end: "2026-04-28T16:00:00Z"
+                      - date: "2026-04-29"
+                        workingHours: []
+                        freeWindows: []
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRange:
+                  value:
+                    type: "https://api.mira.example/problems/invalid-query-parameter"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Query parameter validation failed"
+                    instance: "/v1/providers/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/availability"
+                    errors:
+                      - field: "to"
+                        message: "must not be more than 31 days after 'from'"
+        '404':
+          description: Provider not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Provider with the given identifier was not found"
+                    instance: "/v1/providers/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/availability"
+
+  /v1/bookings:
+    post:
+      summary: Create a booking
+      description: >
+        Creates a booking request for a published listing on behalf of the authenticated consumer. The booking is created with status PENDING and must be accepted by the provider before payment.
+      tags:
+        - Bookings
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+            examples:
+              default:
+                summary: Example booking creation request
+                value:
+                  listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                  bookedStart: "2026-05-05T14:00:00Z"
+                  durationHours: 1.5
+                  locationType: "AT_CONSUMER"
+                  description: "Need help installing Office and migrating files from an old laptop. Two devices total."
+      responses:
+        '201':
+          description: Booking created successfully.
+          headers:
+            Location:
+              description: URI of the created booking resource.
+              required: true
+              schema:
+                type: string
+                example: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingDetails'
+              examples:
+                default:
+                  summary: Example created booking
+                  value:
+                    bookingId: "3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    listing:
+                      title: "Laptop setup and software installation"
+                    consumer:
+                      userId: "11aa11aa-1111-1111-1111-aaaaaaaaaaaa"
+                      name: "Marija"
+                      surname: "Volodermann"
+                    provider:
+                      userId: "22bb22bb-2222-2222-2222-bbbbbbbbbbbb"
+                      name: "Anna"
+                      surname: "Schmidt"
+                    status: "PENDING"
+                    locationType: "AT_CONSUMER"
+                    serviceAddress:
+                      street: "Brunnenstraße"
+                      houseNumber: "25"
+                      city: "Berlin"
+                      postalCode: "10119"
+                    description: "Need help installing Office and migrating files from an old laptop. Two devices total."
+                    totalPrice: 37.50
+                    bookedStart: "2026-05-05T14:00:00Z"
+                    bookedEnd: "2026-05-05T15:30:00Z"
+                    durationHours: 1.5
+                    createdAt: "2026-04-28T10:00:00Z"
+                    confirmedAt: null
+                    completedAt: null
+                    providerCompletedAt: null
+                    consumerConfirmedAt: null
+                    consumerConfirmationType: null
+                    autoConfirmAt: null
+                    cancelledAt: null
+                    expiresAt: null
+        '400':
+          description: Invalid request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Request body validation failed"
+                    instance: "/v1/bookings"
+                    errors:
+                      - field: "durationHours"
+                        message: "must be a multiple of 0.5"
+                      - field: "bookedStart"
+                        message: "must be a future date-time"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to create this booking.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                selfBooking:
+                  summary: Consumer is the listing's author
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "A user cannot book their own listing"
+                    instance: "/v1/bookings"
+        '404':
+          description: Listing not found or not publicly visible.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Listing with the given identifier was not found"
+                    instance: "/v1/bookings"
+        '409':
+          description: The requested time window is no longer available.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                slotTaken:
+                  value:
+                    type: "https://api.mira.example/problems/resource-conflict"
+                    title: "Conflict"
+                    status: 409
+                    detail: "The requested time window is no longer available"
+                    instance: "/v1/bookings"
+        '422':
+          description: Business validation failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                listingNotActive:
+                  value:
+                    type: "https://api.mira.example/problems/business-rule-violation"
+                    title: "Unprocessable Entity"
+                    status: 422
+                    detail: "Business validation failed"
+                    instance: "/v1/bookings"
+                    errors:
+                      - field: "listingId"
+                        message: "listing is not currently accepting bookings"
+                      - field: "bookedStart"
+                        message: "the requested time falls outside the provider's available hours"
+
+  /v1/bookings/{bookingId}:
+    parameters:
+      - $ref: '#/components/parameters/BookingIdParam'
+    get:
+      summary: Get booking details
+      description: >
+        Returns the full details of a booking. Only visible to the consumer who created it and the provider whose listing was booked.
+      tags:
+        - Bookings
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Booking retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingDetails'
+              examples:
+                default:
+                  summary: Example booking details
+                  value:
+                    bookingId: "3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    listing:
+                      title: "Laptop setup and software installation"
+                    consumer:
+                      userId: "11aa11aa-1111-1111-1111-aaaaaaaaaaaa"
+                      name: "Marija"
+                      surname: "Volodermann"
+                    provider:
+                      userId: "22bb22bb-2222-2222-2222-bbbbbbbbbbbb"
+                      name: "Anna"
+                      surname: "Schmidt"
+                    status: "CONFIRMED"
+                    locationType: "AT_CONSUMER"
+                    serviceAddress:
+                      street: "Brunnenstraße"
+                      houseNumber: "25"
+                      city: "Berlin"
+                      postalCode: "10119"
+                    description: "Need help installing Office and migrating files from an old laptop. Two devices total."
+                    totalPrice: 37.50
+                    bookedStart: "2026-05-05T14:00:00Z"
+                    bookedEnd: "2026-05-05T15:30:00Z"
+                    durationHours: 1.5
+                    createdAt: "2026-04-28T10:00:00Z"
+                    confirmedAt: "2026-04-28T10:30:00Z"
+                    completedAt: null
+                    providerCompletedAt: null
+                    consumerConfirmedAt: null
+                    consumerConfirmationType: null
+                    autoConfirmAt: null
+                    cancelledAt: null
+                    expiresAt: "2026-04-30T10:30:00Z"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Booking not found or not visible to the authenticated user.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Booking with the given identifier was not found"
+                    instance: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+
+    delete:
+      summary: Cancel booking
+      description: >
+        Cancels a booking on behalf of the authenticated consumer. Only allowed while the booking is PENDING, CONFIRMED, or PAID, before delivery acknowledgement begins. The record is retained with status CANCELLED.
+      tags:
+        - Bookings
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Booking cancelled successfully.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to cancel this booking.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to cancel this booking"
+                    instance: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+        '404':
+          description: Booking not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Booking with the given identifier was not found"
+                    instance: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+        '409':
+          description: Conflict with the current state of the booking.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidState:
+                  value:
+                    type: "https://api.mira.example/problems/resource-conflict"
+                    title: "Conflict"
+                    status: 409
+                    detail: "Only pending, confirmed, or paid bookings can be cancelled before delivery acknowledgement begins"
+                    instance: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+
+  /v1/me/bookings:
+    get:
+      summary: List my bookings
+      description: >
+        Returns a cursor-paginated list of bookings created by the authenticated user as a consumer, sorted by bookedStart in descending order.
+      tags:
+        - Bookings
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Filter bookings by status.
+          schema:
+            $ref: '#/components/schemas/BookingStatus'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/AfterCursorParam'
+      responses:
+        '200':
+          description: Bookings retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingCollectionResponse'
+              examples:
+                default:
+                  summary: Example list of my bookings
+                  value:
+                    items:
+                      - bookingId: "3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+                        listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                        listing:
+                          title: "Laptop setup and software installation"
+                        counterparty:
+                          userId: "22bb22bb-2222-2222-2222-bbbbbbbbbbbb"
+                          name: "Anna"
+                          surname: "Schmidt"
+                        status: "CONFIRMED"
+                        locationType: "AT_CONSUMER"
+                        serviceAddress:
+                          street: "Brunnenstraße"
+                          houseNumber: "25"
+                          city: "Berlin"
+                          postalCode: "10119"
+                        totalPrice: 37.50
+                        bookedStart: "2026-05-05T14:00:00Z"
+                        bookedEnd: "2026-05-05T15:30:00Z"
+                        durationHours: 1.5
+                        createdAt: "2026-04-28T10:00:00Z"
+                    page:
+                      limit: 20
+                      nextCursor: null
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidPagination:
+                  value:
+                    type: "https://api.mira.example/problems/invalid-query-parameter"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Query parameter validation failed"
+                    instance: "/v1/me/bookings"
+                    errors:
+                      - field: "limit"
+                        message: "must be less than or equal to 100"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/me/incoming-bookings:
+    get:
+      summary: List incoming bookings
+      description: >
+        Returns a cursor-paginated list of bookings made against listings owned by the authenticated user. Defaults to PENDING; use the status query parameter to retrieve other states.
+      tags:
+        - Bookings
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Filter bookings by status. Defaults to PENDING when omitted.
+          schema:
+            $ref: '#/components/schemas/BookingStatus'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/AfterCursorParam'
+      responses:
+        '200':
+          description: Bookings retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingCollectionResponse'
+              examples:
+                default:
+                  summary: Example list of incoming bookings
+                  value:
+                    items:
+                      - bookingId: "3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+                        listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                        listing:
+                          title: "Laptop setup and software installation"
+                        counterparty:
+                          userId: "11aa11aa-1111-1111-1111-aaaaaaaaaaaa"
+                          name: "Marija"
+                          surname: "Volodermann"
+                        status: "PENDING"
+                        locationType: "AT_CONSUMER"
+                        serviceAddress:
+                          street: "Brunnenstraße"
+                          houseNumber: "25"
+                          city: "Berlin"
+                          postalCode: "10119"
+                        totalPrice: 37.50
+                        bookedStart: "2026-05-05T14:00:00Z"
+                        bookedEnd: "2026-05-05T15:30:00Z"
+                        durationHours: 1.5
+                        createdAt: "2026-04-28T10:00:00Z"
+                    page:
+                      limit: 20
+                      nextCursor: null
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidPagination:
+                  value:
+                    type: "https://api.mira.example/problems/invalid-query-parameter"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Query parameter validation failed"
+                    instance: "/v1/me/incoming-bookings"
+                    errors:
+                      - field: "limit"
+                        message: "must be less than or equal to 100"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/bookings/{bookingId}/accept:
+    parameters:
+      - $ref: '#/components/parameters/BookingIdParam'
+    post:
+      summary: Accept booking
+      description: >
+        Accepts a pending booking as the provider. Transitions PENDING to CONFIRMED and sets an expiration deadline for payment.
+      tags:
+        - Bookings
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Booking accepted successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingDetails'
+              examples:
+                default:
+                  summary: Example accepted booking
+                  value:
+                    bookingId: "3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    listing:
+                      title: "Laptop setup and software installation"
+                    consumer:
+                      userId: "11aa11aa-1111-1111-1111-aaaaaaaaaaaa"
+                      name: "Marija"
+                      surname: "Volodermann"
+                    provider:
+                      userId: "22bb22bb-2222-2222-2222-bbbbbbbbbbbb"
+                      name: "Anna"
+                      surname: "Schmidt"
+                    status: "CONFIRMED"
+                    locationType: "AT_CONSUMER"
+                    serviceAddress:
+                      street: "Brunnenstraße"
+                      houseNumber: "25"
+                      city: "Berlin"
+                      postalCode: "10119"
+                    description: "Need help installing Office and migrating files from an old laptop. Two devices total."
+                    totalPrice: 37.50
+                    bookedStart: "2026-05-05T14:00:00Z"
+                    bookedEnd: "2026-05-05T15:30:00Z"
+                    durationHours: 1.5
+                    createdAt: "2026-04-28T10:00:00Z"
+                    confirmedAt: "2026-04-28T10:30:00Z"
+                    completedAt: null
+                    providerCompletedAt: null
+                    consumerConfirmedAt: null
+                    consumerConfirmationType: null
+                    autoConfirmAt: null
+                    cancelledAt: null
+                    expiresAt: "2026-04-30T10:30:00Z"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to accept this booking.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to accept this booking"
+                    instance: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10/accept"
+        '404':
+          description: Booking not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Booking with the given identifier was not found"
+                    instance: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10/accept"
+        '409':
+          description: Conflict with the current state of the booking.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidState:
+                  value:
+                    type: "https://api.mira.example/problems/resource-conflict"
+                    title: "Conflict"
+                    status: 409
+                    detail: "Only pending bookings can be accepted"
+                    instance: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10/accept"
+
+  /v1/bookings/{bookingId}/refuse:
+    parameters:
+      - $ref: '#/components/parameters/BookingIdParam'
+    post:
+      summary: Refuse booking
+      description: >
+        Refuses a pending booking as the provider. Transitions PENDING to REFUSED, with an optional reason message shared with the consumer.
+      tags:
+        - Bookings
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefuseBookingRequest'
+            examples:
+              default:
+                summary: Example refusal request
+                value:
+                  reason: "I am fully booked that afternoon. Please try a different time."
+      responses:
+        '200':
+          description: Booking refused successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingDetails'
+              examples:
+                default:
+                  summary: Example refused booking
+                  value:
+                    bookingId: "3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    listing:
+                      title: "Laptop setup and software installation"
+                    consumer:
+                      userId: "11aa11aa-1111-1111-1111-aaaaaaaaaaaa"
+                      name: "Marija"
+                      surname: "Volodermann"
+                    provider:
+                      userId: "22bb22bb-2222-2222-2222-bbbbbbbbbbbb"
+                      name: "Anna"
+                      surname: "Schmidt"
+                    status: "REFUSED"
+                    locationType: "AT_CONSUMER"
+                    serviceAddress:
+                      street: "Brunnenstraße"
+                      houseNumber: "25"
+                      city: "Berlin"
+                      postalCode: "10119"
+                    description: "Need help installing Office and migrating files from an old laptop. Two devices total."
+                    totalPrice: 37.50
+                    bookedStart: "2026-05-05T14:00:00Z"
+                    bookedEnd: "2026-05-05T15:30:00Z"
+                    durationHours: 1.5
+                    createdAt: "2026-04-28T10:00:00Z"
+                    confirmedAt: null
+                    completedAt: null
+                    providerCompletedAt: null
+                    consumerConfirmedAt: null
+                    consumerConfirmationType: null
+                    autoConfirmAt: null
+                    cancelledAt: "2026-04-28T10:32:00Z"
+                    expiresAt: null
+        '400':
+          description: Invalid request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Request body validation failed"
+                    instance: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10/refuse"
+                    errors:
+                      - field: "reason"
+                        message: "must not exceed 500 characters"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to refuse this booking.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to refuse this booking"
+                    instance: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10/refuse"
+        '404':
+          description: Booking not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Booking with the given identifier was not found"
+                    instance: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10/refuse"
+        '409':
+          description: Conflict with the current state of the booking.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidState:
+                  value:
+                    type: "https://api.mira.example/problems/resource-conflict"
+                    title: "Conflict"
+                    status: 409
+                    detail: "Only pending bookings can be refused"
+                    instance: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10/refuse"
+
+  /v1/bookings/{bookingId}/mark-delivered:
+    parameters:
+      - $ref: '#/components/parameters/BookingIdParam'
+    post:
+      summary: Mark booking as delivered
+      description: >
+        Allows the provider to mark the service as delivered. If this is the first acknowledgement on a PAID booking, the booking transitions to AWAITING_CONFIRMATION and the consumer has 7 days to acknowledge delivery before the booking is auto-completed. If the consumer already acknowledged delivery first, this call completes the booking immediately. If the provider never calls this endpoint, the system auto-marks delivery 7 days after bookedEnd and starts the same 7-day consumer confirmation window.
+      tags:
+        - Bookings
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Delivery marked successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingDetails'
+              examples:
+                awaitingConfirmation:
+                  summary: Provider initiated delivery confirmation
+                  value:
+                    bookingId: "3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    listing:
+                      title: "Laptop setup and software installation"
+                    consumer:
+                      userId: "11aa11aa-1111-1111-1111-aaaaaaaaaaaa"
+                      name: "Marija"
+                      surname: "Volodermann"
+                    provider:
+                      userId: "22bb22bb-2222-2222-2222-bbbbbbbbbbbb"
+                      name: "Anna"
+                      surname: "Schmidt"
+                    status: "AWAITING_CONFIRMATION"
+                    locationType: "AT_CONSUMER"
+                    serviceAddress:
+                      street: "Brunnenstraße"
+                      houseNumber: "25"
+                      city: "Berlin"
+                      postalCode: "10119"
+                    description: "Need help installing Office and migrating files from an old laptop. Two devices total."
+                    totalPrice: 37.50
+                    bookedStart: "2026-05-05T14:00:00Z"
+                    bookedEnd: "2026-05-05T15:30:00Z"
+                    durationHours: 1.5
+                    createdAt: "2026-04-28T10:00:00Z"
+                    confirmedAt: "2026-04-28T10:30:00Z"
+                    completedAt: null
+                    providerCompletedAt: "2026-05-05T15:35:00Z"
+                    consumerConfirmedAt: null
+                    consumerConfirmationType: null
+                    autoConfirmAt: "2026-05-12T15:35:00Z"
+                    cancelledAt: null
+                    expiresAt: "2026-04-30T10:30:00Z"
+                completed:
+                  summary: Consumer had already acknowledged delivery
+                  value:
+                    bookingId: "3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    listing:
+                      title: "Laptop setup and software installation"
+                    consumer:
+                      userId: "11aa11aa-1111-1111-1111-aaaaaaaaaaaa"
+                      name: "Marija"
+                      surname: "Volodermann"
+                    provider:
+                      userId: "22bb22bb-2222-2222-2222-bbbbbbbbbbbb"
+                      name: "Anna"
+                      surname: "Schmidt"
+                    status: "COMPLETED"
+                    locationType: "AT_CONSUMER"
+                    serviceAddress:
+                      street: "Brunnenstraße"
+                      houseNumber: "25"
+                      city: "Berlin"
+                      postalCode: "10119"
+                    description: "Need help installing Office and migrating files from an old laptop. Two devices total."
+                    totalPrice: 37.50
+                    bookedStart: "2026-05-05T14:00:00Z"
+                    bookedEnd: "2026-05-05T15:30:00Z"
+                    durationHours: 1.5
+                    createdAt: "2026-04-28T10:00:00Z"
+                    confirmedAt: "2026-04-28T10:30:00Z"
+                    completedAt: "2026-05-05T15:35:00Z"
+                    providerCompletedAt: "2026-05-05T15:35:00Z"
+                    consumerConfirmedAt: "2026-05-05T15:20:00Z"
+                    consumerConfirmationType: "EXPLICIT"
+                    autoConfirmAt: null
+                    cancelledAt: null
+                    expiresAt: "2026-04-30T10:30:00Z"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to mark this booking as delivered.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to mark this booking as delivered"
+                    instance: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10/mark-delivered"
+        '404':
+          description: Booking not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Booking with the given identifier was not found"
+                    instance: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10/mark-delivered"
+        '409':
+          description: Conflict with the current state of the booking.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidState:
+                  value:
+                    type: "https://api.mira.example/problems/resource-conflict"
+                    title: "Conflict"
+                    status: 409
+                    detail: "Only paid or awaiting-confirmation bookings can be marked as delivered"
+                    instance: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10/mark-delivered"
+
+  /v1/bookings/{bookingId}/acknowledge-delivery:
+    parameters:
+      - $ref: '#/components/parameters/BookingIdParam'
+    post:
+      summary: Acknowledge booking delivery
+      description: >
+        Allows the consumer to acknowledge that the service was delivered. If this is the first acknowledgement on a PAID booking, the booking transitions to AWAITING_CONFIRMATION and the provider has 7 days to mark delivery before the booking is auto-completed. If the provider already marked the booking as delivered first, this call completes the booking immediately.
+      tags:
+        - Bookings
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Delivery acknowledged successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingDetails'
+              examples:
+                awaitingConfirmation:
+                  summary: Consumer initiated delivery confirmation
+                  value:
+                    bookingId: "3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    listing:
+                      title: "Laptop setup and software installation"
+                    consumer:
+                      userId: "11aa11aa-1111-1111-1111-aaaaaaaaaaaa"
+                      name: "Marija"
+                      surname: "Volodermann"
+                    provider:
+                      userId: "22bb22bb-2222-2222-2222-bbbbbbbbbbbb"
+                      name: "Anna"
+                      surname: "Schmidt"
+                    status: "AWAITING_CONFIRMATION"
+                    locationType: "AT_CONSUMER"
+                    serviceAddress:
+                      street: "Brunnenstraße"
+                      houseNumber: "25"
+                      city: "Berlin"
+                      postalCode: "10119"
+                    description: "Need help installing Office and migrating files from an old laptop. Two devices total."
+                    totalPrice: 37.50
+                    bookedStart: "2026-05-05T14:00:00Z"
+                    bookedEnd: "2026-05-05T15:30:00Z"
+                    durationHours: 1.5
+                    createdAt: "2026-04-28T10:00:00Z"
+                    confirmedAt: "2026-04-28T10:30:00Z"
+                    completedAt: null
+                    providerCompletedAt: null
+                    consumerConfirmedAt: "2026-05-05T15:20:00Z"
+                    consumerConfirmationType: "EXPLICIT"
+                    autoConfirmAt: "2026-05-12T15:20:00Z"
+                    cancelledAt: null
+                    expiresAt: "2026-04-30T10:30:00Z"
+                completed:
+                  summary: Provider had already marked delivery
+                  value:
+                    bookingId: "3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    listing:
+                      title: "Laptop setup and software installation"
+                    consumer:
+                      userId: "11aa11aa-1111-1111-1111-aaaaaaaaaaaa"
+                      name: "Marija"
+                      surname: "Volodermann"
+                    provider:
+                      userId: "22bb22bb-2222-2222-2222-bbbbbbbbbbbb"
+                      name: "Anna"
+                      surname: "Schmidt"
+                    status: "COMPLETED"
+                    locationType: "AT_CONSUMER"
+                    serviceAddress:
+                      street: "Brunnenstraße"
+                      houseNumber: "25"
+                      city: "Berlin"
+                      postalCode: "10119"
+                    description: "Need help installing Office and migrating files from an old laptop. Two devices total."
+                    totalPrice: 37.50
+                    bookedStart: "2026-05-05T14:00:00Z"
+                    bookedEnd: "2026-05-05T15:30:00Z"
+                    durationHours: 1.5
+                    createdAt: "2026-04-28T10:00:00Z"
+                    confirmedAt: "2026-04-28T10:30:00Z"
+                    completedAt: "2026-05-05T15:35:00Z"
+                    providerCompletedAt: "2026-05-05T15:00:00Z"
+                    consumerConfirmedAt: "2026-05-05T15:35:00Z"
+                    consumerConfirmationType: "EXPLICIT"
+                    autoConfirmAt: null
+                    cancelledAt: null
+                    expiresAt: "2026-04-30T10:30:00Z"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to acknowledge this booking delivery.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to acknowledge this booking delivery"
+                    instance: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10/acknowledge-delivery"
+        '404':
+          description: Booking not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Booking with the given identifier was not found"
+                    instance: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10/acknowledge-delivery"
+        '409':
+          description: Conflict with the current state of the booking.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidState:
+                  value:
+                    type: "https://api.mira.example/problems/resource-conflict"
+                    title: "Conflict"
+                    status: 409
+                    detail: "Only paid or awaiting-confirmation bookings can be acknowledged"
+                    instance: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10/acknowledge-delivery"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT bearer token issued by the Mira authentication service.
+
+  parameters:
+    BookingIdParam:
+      name: bookingId
+      in: path
+      required: true
+      description: Booking UUID.
+      schema:
+        type: string
+        format: uuid
+    ProviderIdParam:
+      name: providerId
+      in: path
+      required: true
+      description: Provider user UUID.
+      schema:
+        type: string
+        format: uuid
+    LimitParam:
+      name: limit
+      in: query
+      required: false
+      description: Maximum number of items to return. Defaults to 20 when omitted.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    AfterCursorParam:
+      name: after
+      in: query
+      required: false
+      description: >
+        Opaque cursor for fetching the next page. If omitted, the first page is returned.
+      schema:
+        type: string
+
+  responses:
+    UnauthorizedError:
+      description: Authentication is required.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            unauthorized:
+              value:
+                type: "https://api.mira.example/problems/authentication-required"
+                title: "Unauthorized"
+                status: 401
+                detail: "Authentication is required"
+                instance: "/v1/bookings/{bookingId}"
+
+  schemas:
+    CreateBookingRequest:
+      type: object
+      required:
+        - listingId
+        - bookedStart
+        - durationHours
+        - locationType
+        - description
+      properties:
+        listingId:
+          type: string
+          format: uuid
+          description: Identifier of the listing being booked. The provider is derived from the listing's author.
+          example: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+        bookedStart:
+          type: string
+          format: date-time
+          description: ISO-8601 start of the requested service window. Must be a future date-time.
+          example: "2026-05-05T14:00:00Z"
+        durationHours:
+          type: number
+          format: double
+          minimum: 0.5
+          maximum: 12
+          multipleOf: 0.5
+          description: Length of the requested service window in hours. Must be a multiple of 0.5.
+          example: 1.5
+        locationType:
+          $ref: '#/components/schemas/LocationType'
+        description:
+          type: string
+          minLength: 10
+          maxLength: 2000
+          description: Free-text description of the requested service, provided by the consumer.
+          example: "Need help installing Office and migrating files from an old laptop. Two devices total."
+
+    RefuseBookingRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Optional message from the provider explaining why the booking was refused.
+          example: "I am fully booked that afternoon. Please try a different time."
+
+    BookingSummary:
+      type: object
+      required:
+        - bookingId
+        - listingId
+        - listing
+        - counterparty
+        - status
+        - locationType
+        - serviceAddress
+        - totalPrice
+        - bookedStart
+        - bookedEnd
+        - durationHours
+        - createdAt
+      properties:
+        bookingId:
+          type: string
+          format: uuid
+          example: "3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+        listingId:
+          type: string
+          format: uuid
+          example: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+        listing:
+          $ref: '#/components/schemas/BookingListingPreview'
+        counterparty:
+          $ref: '#/components/schemas/BookingParticipant'
+          description: >
+            The other party on this booking, relative to the authenticated user. For consumers, this is the
+            provider. For providers, this is the consumer.
+        status:
+          $ref: '#/components/schemas/BookingStatus'
+        locationType:
+          $ref: '#/components/schemas/LocationType'
+        serviceAddress:
+          oneOf:
+            - $ref: '#/components/schemas/BookingServiceAddress'
+            - type: "null"
+          description: >
+            The address where the service will take place, resolved from locationType: AT_CONSUMER returns the
+            consumer's private address, AT_PROVIDER returns the listing's address, and REMOTE returns null.
+        totalPrice:
+          type: number
+          format: double
+          minimum: 0
+          example: 37.50
+        bookedStart:
+          type: string
+          format: date-time
+          example: "2026-05-05T14:00:00Z"
+        bookedEnd:
+          type: string
+          format: date-time
+          example: "2026-05-05T15:30:00Z"
+        durationHours:
+          type: number
+          format: double
+          example: 1.5
+        createdAt:
+          type: string
+          format: date-time
+
+    BookingDetails:
+      type: object
+      required:
+        - bookingId
+        - listingId
+        - listing
+        - consumer
+        - provider
+        - status
+        - locationType
+        - serviceAddress
+        - description
+        - totalPrice
+        - bookedStart
+        - bookedEnd
+        - durationHours
+        - createdAt
+        - confirmedAt
+        - completedAt
+        - providerCompletedAt
+        - consumerConfirmedAt
+        - consumerConfirmationType
+        - autoConfirmAt
+        - cancelledAt
+        - expiresAt
+      properties:
+        bookingId:
+          type: string
+          format: uuid
+          example: "3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+        listingId:
+          type: string
+          format: uuid
+          example: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+        listing:
+          $ref: '#/components/schemas/BookingListingPreview'
+        consumer:
+          $ref: '#/components/schemas/BookingParticipant'
+        provider:
+          $ref: '#/components/schemas/BookingParticipant'
+        status:
+          $ref: '#/components/schemas/BookingStatus'
+        locationType:
+          $ref: '#/components/schemas/LocationType'
+        serviceAddress:
+          oneOf:
+            - $ref: '#/components/schemas/BookingServiceAddress'
+            - type: "null"
+          description: >
+            The address where the service will take place, resolved from locationType: AT_CONSUMER returns the
+            consumer's private address, AT_PROVIDER returns the listing's address, and REMOTE returns null.
+        description:
+          type: string
+          example: "Need help installing Office and migrating files from an old laptop. Two devices total."
+        totalPrice:
+          type: number
+          format: double
+          minimum: 0
+          description: Snapshot of the booking's total price at the time of creation.
+          example: 37.50
+        bookedStart:
+          type: string
+          format: date-time
+          example: "2026-05-05T14:00:00Z"
+        bookedEnd:
+          type: string
+          format: date-time
+          example: "2026-05-05T15:30:00Z"
+        durationHours:
+          type: number
+          format: double
+          example: 1.5
+        createdAt:
+          type: string
+          format: date-time
+        confirmedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: Set when the provider accepts the booking.
+        completedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: Set when the booking reaches its final completed state.
+        providerCompletedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: Set when the provider explicitly marks the service as delivered.
+        consumerConfirmedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: Set when the consumer explicitly acknowledges delivery.
+        consumerConfirmationType:
+          oneOf:
+            - $ref: '#/components/schemas/ConsumerConfirmationType'
+            - type: "null"
+          description: >
+            Indicates whether consumer confirmation happened explicitly via the API or automatically after the 7-day waiting period.
+        autoConfirmAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: >
+            Timestamp at which the booking will be auto-completed if the second party does not acknowledge delivery in time.
+        cancelledAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: Set when the booking is cancelled, refused, or expired.
+        expiresAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: >
+            Deadline by which a CONFIRMED booking must be paid. After this time the booking is automatically transitioned to EXPIRED.
+
+    BookingListingPreview:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          example: "Laptop setup and software installation"
+
+    BookingParticipant:
+      type: object
+      required:
+        - userId
+        - name
+        - surname
+      properties:
+        userId:
+          type: string
+          format: uuid
+          example: "22bb22bb-2222-2222-2222-bbbbbbbbbbbb"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: "Anna"
+        surname:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: "Schmidt"
+
+    BookingServiceAddress:
+      type: object
+      required:
+        - street
+        - houseNumber
+        - city
+        - postalCode
+      description: >
+        The address at which the service will be delivered. The values are resolved at response time from the relevant source: for AT_CONSUMER bookings, the consumer's private address; for AT_PROVIDER bookings, the listing's address.
+      properties:
+        street:
+          type: string
+          example: "Brunnenstraße"
+        houseNumber:
+          type: string
+          example: "25"
+        city:
+          type: string
+          example: "Berlin"
+        postalCode:
+          type: string
+          example: "10119"
+
+    BookingCollectionResponse:
+      type: object
+      required:
+        - items
+        - page
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingSummary'
+        page:
+          $ref: '#/components/schemas/CursorPageMetadata'
+
+    ProviderAvailabilityResponse:
+      type: object
+      required:
+        - providerId
+        - timezone
+        - days
+      properties:
+        providerId:
+          type: string
+          format: uuid
+          example: "22bb22bb-2222-2222-2222-bbbbbbbbbbbb"
+        timezone:
+          type: string
+          description: IANA timezone identifier in which the provider's working hours are defined.
+          example: "Europe/Berlin"
+        days:
+          type: array
+          description: One entry per day in the requested range, in chronological order.
+          items:
+            $ref: '#/components/schemas/ProviderAvailabilityDay'
+
+    ProviderAvailabilityDay:
+      type: object
+      required:
+        - date
+        - workingHours
+        - freeWindows
+      properties:
+        date:
+          type: string
+          format: date
+          example: "2026-04-28"
+        workingHours:
+          type: array
+          description: >
+            The provider's working hours envelope for this day, derived from the recurring weekly schedule and any AVAILABLE schedule exceptions. May be empty when the provider does not work on this day.
+          items:
+            $ref: '#/components/schemas/TimeRange'
+        freeWindows:
+          type: array
+          description: >
+            Time windows within workingHours that are still bookable, after subtracting BLOCKED schedule exceptions and active bookings.
+          items:
+            $ref: '#/components/schemas/TimeRange'
+
+    TimeRange:
+      type: object
+      required:
+        - start
+        - end
+      properties:
+        start:
+          type: string
+          format: date-time
+          example: "2026-04-28T14:00:00Z"
+        end:
+          type: string
+          format: date-time
+          example: "2026-04-28T18:00:00Z"
+
+    CursorPageMetadata:
+      type: object
+      required:
+        - limit
+        - nextCursor
+      properties:
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          readOnly: true
+          description: Maximum number of items returned.
+          example: 20
+        nextCursor:
+          type:
+            - string
+            - "null"
+          readOnly: true
+          description: Opaque cursor for fetching the next page. Null if no next page exists.
+          example: null
+
+    BookingStatus:
+      type: string
+      enum:
+        - PENDING
+        - CONFIRMED
+        - PAID
+        - AWAITING_CONFIRMATION
+        - COMPLETED
+        - CANCELLED
+        - EXPIRED
+        - REFUSED
+
+    ConsumerConfirmationType:
+      type: string
+      enum:
+        - EXPLICIT
+        - AUTO
+
+    LocationType:
+      type: string
+      enum:
+        - AT_CONSUMER
+        - AT_PROVIDER
+        - REMOTE
+
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - detail
+        - instance
+      properties:
+        type:
+          type: string
+          format: uri
+          example: "https://api.mira.example/problems/validation-error"
+        title:
+          type: string
+          example: "Bad Request"
+        status:
+          type: integer
+          example: 400
+        detail:
+          type: string
+          example: "Request body validation failed"
+        instance:
+          type: string
+          example: "/v1/bookings"
+        errors:
+          type: array
+          description: Field-level validation errors when available.
+          items:
+            $ref: '#/components/schemas/ProblemInvalidParam'
+
+    ProblemInvalidParam:
+      type: object
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+          example: "durationHours"
+        message:
+          type: string
+          example: "must be a multiple of 0.5"

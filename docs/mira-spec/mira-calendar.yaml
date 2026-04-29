@@ -1,0 +1,1076 @@
+openapi: 3.1.0
+info:
+  title: Mira OpenAPI Spec
+  version: v1
+  description: >
+    This API describes the calendar subsystem of Mira, a platform for offering and booking services.
+    It enables consumers and providers to view their bookings on a calendar, and providers to manage their recurring weekly schedule and one-off schedule exceptions that drive their availability.
+
+servers:
+  - url: http://127.0.0.1:8080
+    description: Local development server for the Mira REST API
+
+paths:
+  /v1/me/calendar:
+    get:
+      summary: List my calendar bookings
+      description: >
+        Returns the authenticated user's bookings within the requested date range, regardless of role (consumer or provider). Defaults to bookings in CONFIRMED, PAID, or COMPLETED status; pass the status query parameter to retrieve a single specific status. Results are sorted by bookedStart in ascending order.
+      tags:
+        - Calendar
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: Inclusive start date of the requested range, in ISO-8601 date format.
+          schema:
+            type: string
+            format: date
+            example: "2026-05-01"
+        - name: to
+          in: query
+          required: true
+          description: Inclusive end date of the requested range, in ISO-8601 date format. The range may not exceed 31 days.
+          schema:
+            type: string
+            format: date
+            example: "2026-05-31"
+        - name: status
+          in: query
+          required: false
+          description: Filter bookings by a single status. When omitted, returns CONFIRMED, PAID, and COMPLETED bookings together.
+          schema:
+            $ref: '#/components/schemas/BookingStatus'
+      responses:
+        '200':
+          description: Calendar bookings retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CalendarBookingsResponse'
+              examples:
+                default:
+                  summary: Example calendar bookings
+                  value:
+                    items:
+                      - bookingId: "3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+                        listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                        listing:
+                          title: "Laptop setup and software installation"
+                        counterparty:
+                          userId: "22bb22bb-2222-2222-2222-bbbbbbbbbbbb"
+                          name: "Anna"
+                          surname: "Schmidt"
+                        status: "CONFIRMED"
+                        locationType: "AT_CONSUMER"
+                        serviceAddress:
+                          street: "Brunnenstraße"
+                          houseNumber: "25"
+                          city: "Berlin"
+                          postalCode: "10119"
+                        totalPrice: 37.50
+                        bookedStart: "2026-05-05T14:00:00Z"
+                        bookedEnd: "2026-05-05T15:30:00Z"
+                        durationHours: 1.5
+                        createdAt: "2026-04-28T10:00:00Z"
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRange:
+                  value:
+                    type: "https://api.mira.example/problems/invalid-query-parameter"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Query parameter validation failed"
+                    instance: "/v1/me/calendar"
+                    errors:
+                      - field: "to"
+                        message: "must not be more than 31 days after 'from'"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/me/schedule:
+    get:
+      summary: Get my weekly schedule
+      description: >
+        Returns the authenticated provider's recurring weekly working hours, used as the default availability envelope when consumers browse the provider's calendar. Returns an empty entries array if the provider has not yet set up a schedule.
+      tags:
+        - Schedule
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Weekly schedule retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklySchedule'
+              examples:
+                default:
+                  summary: Example weekly schedule
+                  value:
+                    timezone: "Europe/Berlin"
+                    entries:
+                      - dayOfWeek: "MON"
+                        startTime: "09:00"
+                        endTime: "17:00"
+                      - dayOfWeek: "TUE"
+                        startTime: "09:00"
+                        endTime: "17:00"
+                      - dayOfWeek: "WED"
+                        startTime: "09:00"
+                        endTime: "17:00"
+                      - dayOfWeek: "THU"
+                        startTime: "09:00"
+                        endTime: "17:00"
+                      - dayOfWeek: "FRI"
+                        startTime: "09:00"
+                        endTime: "17:00"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not a provider.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Only providers can manage a weekly schedule"
+                    instance: "/v1/me/schedule"
+
+    put:
+      summary: Replace my weekly schedule
+      description: >
+        Replaces the authenticated provider's recurring weekly schedule with the provided entries. The whole schedule is rewritten atomically; entries not present in the request body are removed. Entries on the same day must not overlap and each entry's endTime must be strictly after its startTime.
+      tags:
+        - Schedule
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplaceWeeklyScheduleRequest'
+            examples:
+              default:
+                summary: Example weekly schedule replacement
+                value:
+                  timezone: "Europe/Berlin"
+                  entries:
+                    - dayOfWeek: "MON"
+                      startTime: "09:00"
+                      endTime: "17:00"
+                    - dayOfWeek: "TUE"
+                      startTime: "09:00"
+                      endTime: "17:00"
+                    - dayOfWeek: "WED"
+                      startTime: "09:00"
+                      endTime: "17:00"
+                    - dayOfWeek: "THU"
+                      startTime: "09:00"
+                      endTime: "17:00"
+                    - dayOfWeek: "FRI"
+                      startTime: "09:00"
+                      endTime: "17:00"
+                    - dayOfWeek: "SAT"
+                      startTime: "10:00"
+                      endTime: "14:00"
+      responses:
+        '200':
+          description: Weekly schedule replaced successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklySchedule'
+              examples:
+                default:
+                  summary: Example replaced weekly schedule
+                  value:
+                    timezone: "Europe/Berlin"
+                    entries:
+                      - dayOfWeek: "MON"
+                        startTime: "09:00"
+                        endTime: "17:00"
+                      - dayOfWeek: "TUE"
+                        startTime: "09:00"
+                        endTime: "17:00"
+                      - dayOfWeek: "WED"
+                        startTime: "09:00"
+                        endTime: "17:00"
+                      - dayOfWeek: "THU"
+                        startTime: "09:00"
+                        endTime: "17:00"
+                      - dayOfWeek: "FRI"
+                        startTime: "09:00"
+                        endTime: "17:00"
+                      - dayOfWeek: "SAT"
+                        startTime: "10:00"
+                        endTime: "14:00"
+        '400':
+          description: Invalid request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Request body validation failed"
+                    instance: "/v1/me/schedule"
+                    errors:
+                      - field: "entries[1].endTime"
+                        message: "must be after startTime"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not a provider.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Only providers can manage a weekly schedule"
+                    instance: "/v1/me/schedule"
+        '422':
+          description: Business validation failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                overlappingEntries:
+                  value:
+                    type: "https://api.mira.example/problems/business-rule-violation"
+                    title: "Unprocessable Entity"
+                    status: 422
+                    detail: "Business validation failed"
+                    instance: "/v1/me/schedule"
+                    errors:
+                      - field: "entries"
+                        message: "overlapping schedule entries are not allowed on the same day"
+                      - field: "timezone"
+                        message: "must be a valid IANA timezone identifier"
+
+  /v1/me/exceptions:
+    get:
+      summary: List my schedule exceptions
+      description: >
+        Returns the authenticated provider's schedule exceptions within the requested date range. Exceptions adjust the recurring weekly schedule for specific dates, either blocking working hours or adding availability outside normal hours.
+      tags:
+        - Exceptions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: true
+          description: Inclusive start date of the requested range, in ISO-8601 date format.
+          schema:
+            type: string
+            format: date
+            example: "2026-05-01"
+        - name: to
+          in: query
+          required: true
+          description: Inclusive end date of the requested range, in ISO-8601 date format. The range may not exceed 92 days.
+          schema:
+            type: string
+            format: date
+            example: "2026-05-31"
+      responses:
+        '200':
+          description: Schedule exceptions retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleExceptionCollectionResponse'
+              examples:
+                default:
+                  summary: Example schedule exceptions
+                  value:
+                    items:
+                      - exceptionId: "aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+                        date: "2026-05-12"
+                        startTime: null
+                        endTime: null
+                        exceptionType: "BLOCKED"
+                        createdAt: "2026-04-28T11:00:00Z"
+                        updatedAt: "2026-04-28T11:00:00Z"
+                      - exceptionId: "bbbbbbbb-2222-3333-4444-cccccccccccc"
+                        date: "2026-05-16"
+                        startTime: "10:00"
+                        endTime: "14:00"
+                        exceptionType: "AVAILABLE"
+                        createdAt: "2026-04-28T11:05:00Z"
+                        updatedAt: "2026-04-28T11:05:00Z"
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRange:
+                  value:
+                    type: "https://api.mira.example/problems/invalid-query-parameter"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Query parameter validation failed"
+                    instance: "/v1/me/exceptions"
+                    errors:
+                      - field: "to"
+                        message: "must not be more than 92 days after 'from'"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not a provider.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Only providers can manage schedule exceptions"
+                    instance: "/v1/me/exceptions"
+
+    post:
+      summary: Create a schedule exception
+      description: >
+        Creates a new schedule exception for the authenticated provider. Use exceptionType BLOCKED to remove availability that the recurring schedule would otherwise allow, or AVAILABLE to add availability outside the recurring schedule. Omitting startTime and endTime creates an all-day exception.
+      tags:
+        - Exceptions
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScheduleExceptionRequest'
+            examples:
+              blockedAllDay:
+                summary: All-day BLOCKED exception (vacation)
+                value:
+                  date: "2026-05-12"
+                  exceptionType: "BLOCKED"
+              blockedPartialDay:
+                summary: Partial-day BLOCKED exception
+                value:
+                  date: "2026-05-14"
+                  startTime: "12:00"
+                  endTime: "14:00"
+                  exceptionType: "BLOCKED"
+              availableExtra:
+                summary: AVAILABLE exception (extra Saturday hours)
+                value:
+                  date: "2026-05-16"
+                  startTime: "10:00"
+                  endTime: "14:00"
+                  exceptionType: "AVAILABLE"
+      responses:
+        '201':
+          description: Schedule exception created successfully.
+          headers:
+            Location:
+              description: URI of the created schedule exception resource.
+              required: true
+              schema:
+                type: string
+                example: "/v1/me/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleException'
+              examples:
+                default:
+                  summary: Example created schedule exception
+                  value:
+                    exceptionId: "aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+                    date: "2026-05-12"
+                    startTime: null
+                    endTime: null
+                    exceptionType: "BLOCKED"
+                    createdAt: "2026-04-28T11:00:00Z"
+                    updatedAt: "2026-04-28T11:00:00Z"
+        '400':
+          description: Invalid request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Request body validation failed"
+                    instance: "/v1/me/exceptions"
+                    errors:
+                      - field: "endTime"
+                        message: "must be after startTime"
+                      - field: "startTime"
+                        message: "must be provided together with endTime"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not a provider.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Only providers can manage schedule exceptions"
+                    instance: "/v1/me/exceptions"
+        '422':
+          description: Business validation failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                conflictsWithBooking:
+                  value:
+                    type: "https://api.mira.example/problems/business-rule-violation"
+                    title: "Unprocessable Entity"
+                    status: 422
+                    detail: "Business validation failed"
+                    instance: "/v1/me/exceptions"
+                    errors:
+                      - field: "date"
+                        message: "the requested time window overlaps an existing active booking"
+
+  /v1/me/exceptions/{exceptionId}:
+    parameters:
+      - $ref: '#/components/parameters/ExceptionIdParam'
+    get:
+      summary: Get schedule exception details
+      description: >
+        Returns the full details of a schedule exception owned by the authenticated provider.
+      tags:
+        - Exceptions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Schedule exception retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleException'
+              examples:
+                default:
+                  summary: Example schedule exception details
+                  value:
+                    exceptionId: "aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+                    date: "2026-05-12"
+                    startTime: null
+                    endTime: null
+                    exceptionType: "BLOCKED"
+                    createdAt: "2026-04-28T11:00:00Z"
+                    updatedAt: "2026-04-28T11:00:00Z"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not a provider.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Only providers can manage schedule exceptions"
+                    instance: "/v1/me/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+        '404':
+          description: Schedule exception not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Schedule exception with the given identifier was not found"
+                    instance: "/v1/me/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+
+    patch:
+      summary: Update schedule exception
+      description: >
+        Partially updates a schedule exception owned by the authenticated provider. Only the fields provided in the request body are changed.
+      tags:
+        - Exceptions
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateScheduleExceptionRequest'
+            examples:
+              changeWindow:
+                summary: Change time window
+                value:
+                  startTime: "13:00"
+                  endTime: "16:00"
+              flipToAllDay:
+                summary: Convert to all-day
+                value:
+                  startTime: null
+                  endTime: null
+      responses:
+        '200':
+          description: Schedule exception updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleException'
+              examples:
+                default:
+                  summary: Example updated schedule exception
+                  value:
+                    exceptionId: "aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+                    date: "2026-05-12"
+                    startTime: "13:00"
+                    endTime: "16:00"
+                    exceptionType: "BLOCKED"
+                    createdAt: "2026-04-28T11:00:00Z"
+                    updatedAt: "2026-04-28T12:30:00Z"
+        '400':
+          description: Invalid request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Request body validation failed"
+                    instance: "/v1/me/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+                    errors:
+                      - field: "endTime"
+                        message: "must be after startTime"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not a provider.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Only providers can manage schedule exceptions"
+                    instance: "/v1/me/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+        '404':
+          description: Schedule exception not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Schedule exception with the given identifier was not found"
+                    instance: "/v1/me/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+        '422':
+          description: Business validation failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                conflictsWithBooking:
+                  value:
+                    type: "https://api.mira.example/problems/business-rule-violation"
+                    title: "Unprocessable Entity"
+                    status: 422
+                    detail: "Business validation failed"
+                    instance: "/v1/me/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+                    errors:
+                      - field: "date"
+                        message: "the requested time window overlaps an existing active booking"
+
+    delete:
+      summary: Delete schedule exception
+      description: >
+        Deletes a schedule exception owned by the authenticated provider. The provider's recurring weekly schedule resumes for the affected date.
+      tags:
+        - Exceptions
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Schedule exception deleted successfully.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not a provider.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Only providers can manage schedule exceptions"
+                    instance: "/v1/me/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+        '404':
+          description: Schedule exception not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Schedule exception with the given identifier was not found"
+                    instance: "/v1/me/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT bearer token issued by the Mira authentication service.
+
+  parameters:
+    ExceptionIdParam:
+      name: exceptionId
+      in: path
+      required: true
+      description: Schedule exception UUID.
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    UnauthorizedError:
+      description: Authentication is required.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            unauthorized:
+              value:
+                type: "https://api.mira.example/problems/authentication-required"
+                title: "Unauthorized"
+                status: 401
+                detail: "Authentication is required"
+                instance: "/v1/me/calendar"
+
+  schemas:
+    CalendarBookingsResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/BookingSummary'
+
+    WeeklySchedule:
+      type: object
+      required:
+        - timezone
+        - entries
+      properties:
+        timezone:
+          type: string
+          description: IANA timezone identifier in which the schedule entries are interpreted.
+          example: "Europe/Berlin"
+        entries:
+          type: array
+          description: Recurring weekly working windows. Multiple entries on the same day are allowed (for example, a morning and an afternoon block) but must not overlap.
+          items:
+            $ref: '#/components/schemas/WeeklyScheduleEntry'
+
+    WeeklyScheduleEntry:
+      type: object
+      required:
+        - dayOfWeek
+        - startTime
+        - endTime
+      properties:
+        dayOfWeek:
+          $ref: '#/components/schemas/DayOfWeek'
+        startTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
+          description: Local start time in HH:mm format (24-hour clock), interpreted in the schedule's timezone.
+          example: "09:00"
+        endTime:
+          type: string
+          pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
+          description: Local end time in HH:mm format (24-hour clock), interpreted in the schedule's timezone. Must be strictly after startTime.
+          example: "17:00"
+
+    ReplaceWeeklyScheduleRequest:
+      type: object
+      required:
+        - timezone
+        - entries
+      properties:
+        timezone:
+          type: string
+          description: IANA timezone identifier in which the schedule entries are interpreted.
+          example: "Europe/Berlin"
+        entries:
+          type: array
+          minItems: 0
+          maxItems: 21
+          items:
+            $ref: '#/components/schemas/WeeklyScheduleEntry'
+
+    ScheduleException:
+      type: object
+      required:
+        - exceptionId
+        - date
+        - startTime
+        - endTime
+        - exceptionType
+        - createdAt
+        - updatedAt
+      properties:
+        exceptionId:
+          type: string
+          format: uuid
+          example: "aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+        date:
+          type: string
+          format: date
+          description: The date the exception applies to.
+          example: "2026-05-12"
+        startTime:
+          oneOf:
+            - type: string
+              pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
+            - type: "null"
+          description: Local start time in HH:mm format. Null when the exception covers the entire day.
+          example: "12:00"
+        endTime:
+          oneOf:
+            - type: string
+              pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
+            - type: "null"
+          description: Local end time in HH:mm format. Null when the exception covers the entire day. Must be strictly after startTime when both are provided.
+          example: "14:00"
+        exceptionType:
+          $ref: '#/components/schemas/ScheduleExceptionType'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateScheduleExceptionRequest:
+      type: object
+      required:
+        - date
+        - exceptionType
+      properties:
+        date:
+          type: string
+          format: date
+          description: The date the exception applies to.
+          example: "2026-05-12"
+        startTime:
+          oneOf:
+            - type: string
+              pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
+            - type: "null"
+          description: Local start time in HH:mm format. Omit or set to null together with endTime to create an all-day exception.
+          example: "12:00"
+        endTime:
+          oneOf:
+            - type: string
+              pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
+            - type: "null"
+          description: Local end time in HH:mm format. Omit or set to null together with startTime to create an all-day exception.
+          example: "14:00"
+        exceptionType:
+          $ref: '#/components/schemas/ScheduleExceptionType'
+
+    UpdateScheduleExceptionRequest:
+      type: object
+      minProperties: 1
+      properties:
+        date:
+          type: string
+          format: date
+          example: "2026-05-12"
+        startTime:
+          oneOf:
+            - type: string
+              pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
+            - type: "null"
+          example: "13:00"
+        endTime:
+          oneOf:
+            - type: string
+              pattern: '^([01]\d|2[0-3]):([0-5]\d)$'
+            - type: "null"
+          example: "16:00"
+        exceptionType:
+          $ref: '#/components/schemas/ScheduleExceptionType'
+
+    ScheduleExceptionCollectionResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleException'
+
+    BookingSummary:
+      type: object
+      required:
+        - bookingId
+        - listingId
+        - listing
+        - counterparty
+        - status
+        - locationType
+        - serviceAddress
+        - totalPrice
+        - bookedStart
+        - bookedEnd
+        - durationHours
+        - createdAt
+      properties:
+        bookingId:
+          type: string
+          format: uuid
+          example: "3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
+        listingId:
+          type: string
+          format: uuid
+          example: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+        listing:
+          $ref: '#/components/schemas/BookingListingPreview'
+        counterparty:
+          $ref: '#/components/schemas/BookingParticipant'
+          description: >
+            The other party on this booking, relative to the authenticated user. For consumers, this is the
+            provider. For providers, this is the consumer.
+        status:
+          $ref: '#/components/schemas/BookingStatus'
+        locationType:
+          $ref: '#/components/schemas/LocationType'
+        serviceAddress:
+          oneOf:
+            - $ref: '#/components/schemas/BookingServiceAddress'
+            - type: "null"
+          description: >
+            The address where the service will take place, resolved from locationType: AT_CONSUMER returns the
+            consumer's private address, AT_PROVIDER returns the listing's address, and REMOTE returns null.
+        totalPrice:
+          type: number
+          format: double
+          minimum: 0
+          example: 37.50
+        bookedStart:
+          type: string
+          format: date-time
+          example: "2026-05-05T14:00:00Z"
+        bookedEnd:
+          type: string
+          format: date-time
+          example: "2026-05-05T15:30:00Z"
+        durationHours:
+          type: number
+          format: double
+          example: 1.5
+        createdAt:
+          type: string
+          format: date-time
+
+    BookingListingPreview:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          example: "Laptop setup and software installation"
+
+    BookingParticipant:
+      type: object
+      required:
+        - userId
+        - name
+        - surname
+      properties:
+        userId:
+          type: string
+          format: uuid
+          example: "22bb22bb-2222-2222-2222-bbbbbbbbbbbb"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: "Anna"
+        surname:
+          type: string
+          minLength: 1
+          maxLength: 120
+          example: "Schmidt"
+
+    BookingServiceAddress:
+      type: object
+      required:
+        - street
+        - houseNumber
+        - city
+        - postalCode
+      properties:
+        street:
+          type: string
+          example: "Brunnenstraße"
+        houseNumber:
+          type: string
+          example: "25"
+        city:
+          type: string
+          example: "Berlin"
+        postalCode:
+          type: string
+          example: "10119"
+
+    DayOfWeek:
+      type: string
+      enum:
+        - MON
+        - TUE
+        - WED
+        - THU
+        - FRI
+        - SAT
+        - SUN
+
+    ScheduleExceptionType:
+      type: string
+      enum:
+        - AVAILABLE
+        - BLOCKED
+
+    BookingStatus:
+      type: string
+      enum:
+        - PENDING
+        - CONFIRMED
+        - PAID
+        - COMPLETED
+        - CANCELLED
+        - EXPIRED
+        - REFUSED
+
+    LocationType:
+      type: string
+      enum:
+        - AT_CONSUMER
+        - AT_PROVIDER
+        - REMOTE
+
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - detail
+        - instance
+      properties:
+        type:
+          type: string
+          format: uri
+          example: "https://api.mira.example/problems/validation-error"
+        title:
+          type: string
+          example: "Bad Request"
+        status:
+          type: integer
+          example: 400
+        detail:
+          type: string
+          example: "Request body validation failed"
+        instance:
+          type: string
+          example: "/v1/me/exceptions"
+        errors:
+          type: array
+          description: Field-level validation errors when available.
+          items:
+            $ref: '#/components/schemas/ProblemInvalidParam'
+
+    ProblemInvalidParam:
+      type: object
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+          example: "endTime"
+        message:
+          type: string
+          example: "must be after startTime"
