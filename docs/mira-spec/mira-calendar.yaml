@@ -11,11 +11,13 @@ servers:
     description: Local development server for the Mira REST API
 
 paths:
-  /v1/me/calendar:
+  /v1/users/{userId}/calendar:
+    parameters:
+      - $ref: '#/components/parameters/UserIdParam'
     get:
-      summary: List my calendar bookings
+      summary: List calendar bookings of a user
       description: >
-        Returns the authenticated user's bookings within the requested date range, regardless of role (consumer or provider). Defaults to bookings in CONFIRMED, PAID, or COMPLETED status; pass the status query parameter to retrieve a single specific status. Results are sorted by bookedStart in ascending order.
+        Returns the user's bookings within the requested date range, regardless of role (consumer or provider). Defaults to bookings in CONFIRMED, PAID, or COMPLETED status; pass the status query parameter to retrieve a single specific status. Results are sorted by bookedStart in ascending order. The userId in the path must match the authenticated user, or the authenticated user must have administrator privileges.
       tags:
         - Calendar
       security:
@@ -88,18 +90,48 @@ paths:
                     title: "Bad Request"
                     status: 400
                     detail: "Query parameter validation failed"
-                    instance: "/v1/me/calendar"
+                    instance: "/v1/users/11aa11aa-1111-1111-1111-aaaaaaaaaaaa/calendar"
                     errors:
                       - field: "to"
                         message: "must not be more than 31 days after 'from'"
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to access this user's calendar.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notOwner:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to access this user's calendar"
+                    instance: "/v1/users/11aa11aa-1111-1111-1111-aaaaaaaaaaaa/calendar"
+        '404':
+          description: Target user not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "User with the given identifier was not found"
+                    instance: "/v1/users/11aa11aa-1111-1111-1111-aaaaaaaaaaaa/calendar"
 
-  /v1/me/schedule:
+  /v1/users/{userId}/schedule:
+    parameters:
+      - $ref: '#/components/parameters/UserIdParam'
     get:
-      summary: Get my weekly schedule
+      summary: Get a user's weekly schedule
       description: >
-        Returns the authenticated provider's recurring weekly working hours, used as the default availability envelope when consumers browse the provider's calendar. Returns an empty entries array if the provider has not yet set up a schedule.
+        Returns the user's recurring weekly working hours, used as the default availability envelope when consumers browse the provider's calendar. Returns an empty entries array if the provider has not yet set up a schedule. The userId in the path must match the authenticated user, or the authenticated user must have administrator privileges.
       tags:
         - Schedule
       security:
@@ -135,24 +167,47 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
-          description: Authenticated user is not a provider.
+          description: Authenticated user is not allowed to access this user's schedule, or the target user is not a provider.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
               examples:
-                forbidden:
+                notOwner:
+                  summary: Authenticated user is not the target user
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to access this user's schedule"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/schedule"
+                notProvider:
+                  summary: Target user is not a provider
                   value:
                     type: "https://api.mira.example/problems/insufficient-permissions"
                     title: "Forbidden"
                     status: 403
                     detail: "Only providers can manage a weekly schedule"
-                    instance: "/v1/me/schedule"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/schedule"
+        '404':
+          description: Target user not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "User with the given identifier was not found"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/schedule"
 
     put:
-      summary: Replace my weekly schedule
+      summary: Replace a user's weekly schedule
       description: >
-        Replaces the authenticated provider's recurring weekly schedule with the provided entries. The whole schedule is rewritten atomically; entries not present in the request body are removed. Entries on the same day must not overlap and each entry's endTime must be strictly after its startTime.
+        Replaces the user's recurring weekly schedule with the provided entries. The whole schedule is rewritten atomically; entries not present in the request body are removed. Entries on the same day must not overlap and each entry's endTime must be strictly after its startTime. The userId in the path must match the authenticated user, or the authenticated user must have administrator privileges.
       tags:
         - Schedule
       security:
@@ -231,26 +286,49 @@ paths:
                     title: "Bad Request"
                     status: 400
                     detail: "Request body validation failed"
-                    instance: "/v1/me/schedule"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/schedule"
                     errors:
                       - field: "entries[1].endTime"
                         message: "must be after startTime"
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
-          description: Authenticated user is not a provider.
+          description: Authenticated user is not allowed to modify this user's schedule, or the target user is not a provider.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
               examples:
-                forbidden:
+                notOwner:
+                  summary: Authenticated user is not the target user
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to modify this user's schedule"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/schedule"
+                notProvider:
+                  summary: Target user is not a provider
                   value:
                     type: "https://api.mira.example/problems/insufficient-permissions"
                     title: "Forbidden"
                     status: 403
                     detail: "Only providers can manage a weekly schedule"
-                    instance: "/v1/me/schedule"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/schedule"
+        '404':
+          description: Target user not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "User with the given identifier was not found"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/schedule"
         '422':
           description: Business validation failed.
           content:
@@ -264,18 +342,20 @@ paths:
                     title: "Unprocessable Entity"
                     status: 422
                     detail: "Business validation failed"
-                    instance: "/v1/me/schedule"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/schedule"
                     errors:
                       - field: "entries"
                         message: "overlapping schedule entries are not allowed on the same day"
                       - field: "timezone"
                         message: "must be a valid IANA timezone identifier"
 
-  /v1/me/exceptions:
+  /v1/users/{userId}/exceptions:
+    parameters:
+      - $ref: '#/components/parameters/UserIdParam'
     get:
-      summary: List my schedule exceptions
+      summary: List a user's schedule exceptions
       description: >
-        Returns the authenticated provider's schedule exceptions within the requested date range. Exceptions adjust the recurring weekly schedule for specific dates, either blocking working hours or adding availability outside normal hours.
+        Returns the user's schedule exceptions within the requested date range. Exceptions adjust the recurring weekly schedule for specific dates, either blocking working hours or adding availability outside normal hours. The userId in the path must match the authenticated user, or the authenticated user must have administrator privileges.
       tags:
         - Exceptions
       security:
@@ -336,31 +416,54 @@ paths:
                     title: "Bad Request"
                     status: 400
                     detail: "Query parameter validation failed"
-                    instance: "/v1/me/exceptions"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions"
                     errors:
                       - field: "to"
                         message: "must not be more than 92 days after 'from'"
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
-          description: Authenticated user is not a provider.
+          description: Authenticated user is not allowed to access this user's exceptions, or the target user is not a provider.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
               examples:
-                forbidden:
+                notOwner:
+                  summary: Authenticated user is not the target user
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to access this user's schedule exceptions"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions"
+                notProvider:
+                  summary: Target user is not a provider
                   value:
                     type: "https://api.mira.example/problems/insufficient-permissions"
                     title: "Forbidden"
                     status: 403
                     detail: "Only providers can manage schedule exceptions"
-                    instance: "/v1/me/exceptions"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions"
+        '404':
+          description: Target user not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "User with the given identifier was not found"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions"
 
     post:
-      summary: Create a schedule exception
+      summary: Create a schedule exception for a user
       description: >
-        Creates a new schedule exception for the authenticated provider. Use exceptionType BLOCKED to remove availability that the recurring schedule would otherwise allow, or AVAILABLE to add availability outside the recurring schedule. Omitting startTime and endTime creates an all-day exception.
+        Creates a new schedule exception for the user identified in the path. Use exceptionType BLOCKED to remove availability that the recurring schedule would otherwise allow, or AVAILABLE to add availability outside the recurring schedule. Omitting startTime and endTime creates an all-day exception. The userId in the path must match the authenticated user, or the authenticated user must have administrator privileges.
       tags:
         - Exceptions
       security:
@@ -400,7 +503,7 @@ paths:
               required: true
               schema:
                 type: string
-                example: "/v1/me/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+                example: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
           content:
             application/json:
               schema:
@@ -429,7 +532,7 @@ paths:
                     title: "Bad Request"
                     status: 400
                     detail: "Request body validation failed"
-                    instance: "/v1/me/exceptions"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions"
                     errors:
                       - field: "endTime"
                         message: "must be after startTime"
@@ -438,19 +541,42 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
-          description: Authenticated user is not a provider.
+          description: Authenticated user is not allowed to create exceptions for this user, or the target user is not a provider.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
               examples:
-                forbidden:
+                notOwner:
+                  summary: Authenticated user is not the target user
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to create exceptions for this user"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions"
+                notProvider:
+                  summary: Target user is not a provider
                   value:
                     type: "https://api.mira.example/problems/insufficient-permissions"
                     title: "Forbidden"
                     status: 403
                     detail: "Only providers can manage schedule exceptions"
-                    instance: "/v1/me/exceptions"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions"
+        '404':
+          description: Target user not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "User with the given identifier was not found"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions"
         '422':
           description: Business validation failed.
           content:
@@ -464,18 +590,19 @@ paths:
                     title: "Unprocessable Entity"
                     status: 422
                     detail: "Business validation failed"
-                    instance: "/v1/me/exceptions"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions"
                     errors:
                       - field: "date"
                         message: "the requested time window overlaps an existing active booking"
 
-  /v1/me/exceptions/{exceptionId}:
+  /v1/users/{userId}/exceptions/{exceptionId}:
     parameters:
+      - $ref: '#/components/parameters/UserIdParam'
       - $ref: '#/components/parameters/ExceptionIdParam'
     get:
       summary: Get schedule exception details
       description: >
-        Returns the full details of a schedule exception owned by the authenticated provider.
+        Returns the full details of a schedule exception belonging to the user identified in the path. The userId in the path must match the authenticated user, or the authenticated user must have administrator privileges.
       tags:
         - Exceptions
       security:
@@ -501,21 +628,22 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
-          description: Authenticated user is not a provider.
+          description: Authenticated user is not allowed to access this exception, or the target user is not a provider.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
               examples:
-                forbidden:
+                notOwner:
+                  summary: Authenticated user is not the target user
                   value:
                     type: "https://api.mira.example/problems/insufficient-permissions"
                     title: "Forbidden"
                     status: 403
-                    detail: "Only providers can manage schedule exceptions"
-                    instance: "/v1/me/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+                    detail: "Authenticated user is not allowed to access this user's schedule exceptions"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
         '404':
-          description: Schedule exception not found.
+          description: Target user or schedule exception not found.
           content:
             application/problem+json:
               schema:
@@ -527,12 +655,12 @@ paths:
                     title: "Not Found"
                     status: 404
                     detail: "Schedule exception with the given identifier was not found"
-                    instance: "/v1/me/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
 
     patch:
-      summary: Update schedule exception
+      summary: Update a schedule exception
       description: >
-        Partially updates a schedule exception owned by the authenticated provider. Only the fields provided in the request body are changed.
+        Partially updates a schedule exception belonging to the user identified in the path. Only the fields provided in the request body are changed. The userId in the path must match the authenticated user, or the authenticated user must have administrator privileges.
       tags:
         - Exceptions
       security:
@@ -585,28 +713,29 @@ paths:
                     title: "Bad Request"
                     status: 400
                     detail: "Request body validation failed"
-                    instance: "/v1/me/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
                     errors:
                       - field: "endTime"
                         message: "must be after startTime"
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
-          description: Authenticated user is not a provider.
+          description: Authenticated user is not allowed to modify this exception, or the target user is not a provider.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
               examples:
-                forbidden:
+                notOwner:
+                  summary: Authenticated user is not the target user
                   value:
                     type: "https://api.mira.example/problems/insufficient-permissions"
                     title: "Forbidden"
                     status: 403
-                    detail: "Only providers can manage schedule exceptions"
-                    instance: "/v1/me/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+                    detail: "Authenticated user is not allowed to modify this user's schedule exceptions"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
         '404':
-          description: Schedule exception not found.
+          description: Target user or schedule exception not found.
           content:
             application/problem+json:
               schema:
@@ -618,7 +747,7 @@ paths:
                     title: "Not Found"
                     status: 404
                     detail: "Schedule exception with the given identifier was not found"
-                    instance: "/v1/me/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
         '422':
           description: Business validation failed.
           content:
@@ -632,15 +761,15 @@ paths:
                     title: "Unprocessable Entity"
                     status: 422
                     detail: "Business validation failed"
-                    instance: "/v1/me/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
                     errors:
                       - field: "date"
                         message: "the requested time window overlaps an existing active booking"
 
     delete:
-      summary: Delete schedule exception
+      summary: Delete a schedule exception
       description: >
-        Deletes a schedule exception owned by the authenticated provider. The provider's recurring weekly schedule resumes for the affected date.
+        Deletes a schedule exception belonging to the user identified in the path. The user's recurring weekly schedule resumes for the affected date. The userId in the path must match the authenticated user, or the authenticated user must have administrator privileges.
       tags:
         - Exceptions
       security:
@@ -651,21 +780,22 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
-          description: Authenticated user is not a provider.
+          description: Authenticated user is not allowed to delete this exception, or the target user is not a provider.
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
               examples:
-                forbidden:
+                notOwner:
+                  summary: Authenticated user is not the target user
                   value:
                     type: "https://api.mira.example/problems/insufficient-permissions"
                     title: "Forbidden"
                     status: 403
-                    detail: "Only providers can manage schedule exceptions"
-                    instance: "/v1/me/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+                    detail: "Authenticated user is not allowed to delete this user's schedule exceptions"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
         '404':
-          description: Schedule exception not found.
+          description: Target user or schedule exception not found.
           content:
             application/problem+json:
               schema:
@@ -677,7 +807,7 @@ paths:
                     title: "Not Found"
                     status: 404
                     detail: "Schedule exception with the given identifier was not found"
-                    instance: "/v1/me/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
 
 components:
   securitySchemes:
@@ -688,6 +818,14 @@ components:
       description: JWT bearer token issued by the Mira authentication service.
 
   parameters:
+    UserIdParam:
+      name: userId
+      in: path
+      required: true
+      description: User UUID.
+      schema:
+        type: string
+        format: uuid
     ExceptionIdParam:
       name: exceptionId
       in: path
@@ -711,7 +849,7 @@ components:
                 title: "Unauthorized"
                 status: 401
                 detail: "Authentication is required"
-                instance: "/v1/me/calendar"
+                instance: "/v1/users/{userId}/calendar"
 
   schemas:
     CalendarBookingsResponse:
@@ -1055,7 +1193,7 @@ components:
           example: "Request body validation failed"
         instance:
           type: string
-          example: "/v1/me/exceptions"
+          example: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/exceptions"
         errors:
           type: array
           description: Field-level validation errors when available.
