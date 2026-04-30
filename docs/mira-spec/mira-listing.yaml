@@ -2151,16 +2151,6 @@ components:
           type: string
           example: "File exceeds the maximum allowed size"
 
-    ListingIdentifier:
-      type: object
-      required:
-        - listingId
-      properties:
-        listingId:
-          type: string
-          format: uuid
-          example: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-
     PublicListingSummary:
       type: object
       required:
