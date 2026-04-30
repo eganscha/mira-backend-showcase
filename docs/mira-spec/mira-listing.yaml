@@ -1084,6 +1084,23 @@ paths:
                     status: "PENDING"
                     message: "This listing contains misleading information and appears to violate platform rules."
                     createdAt: "2026-04-21T10:00:00Z"
+        '400':
+          description: Invalid request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Request body validation failed"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/report"
+                    errors:
+                      - field: "message"
+                        message: "must contain at least 10 characters"
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -1187,6 +1204,23 @@ paths:
                         width: 1280
                         height: 720
                         createdAt: "2026-04-20T16:10:00Z"
+        '400':
+          description: Invalid request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Request body validation failed"
+                    instance: "/v1/admin/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/block"
+                    errors:
+                      - field: "comment"
+                        message: "must contain at least 5 characters"
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -1307,6 +1341,23 @@ paths:
                         width: 1280
                         height: 720
                         createdAt: "2026-04-20T16:10:00Z"
+        '400':
+          description: Invalid request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Request body validation failed"
+                    instance: "/v1/admin/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/dismiss-report"
+                    errors:
+                      - field: "comment"
+                        message: "must contain at least 5 characters"
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -1666,10 +1717,12 @@ paths:
                     detail: "Media of deleted listings cannot be deleted"
                     instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/media/11111111-2222-3333-4444-555555555555"
 
-  /v1/me/profile-picture:
+  /v1/users/{userId}/profile-picture:
+    parameters:
+      - $ref: '#/components/parameters/UserIdParam'
     put:
-      summary: Replace my profile picture
-      description: Uploads or replaces the authenticated user's profile picture.
+      summary: Replace user's profile picture
+      description: Uploads or replaces the specified user's profile picture. This endpoint is accessible only when userId matches the authenticated user.
       tags:
         - Users (Profile Picture)
       security:
@@ -1692,7 +1745,7 @@ paths:
                   summary: Example replaced profile picture
                   value:
                     mediaId: "22222222-3333-4444-5555-666666666666"
-                    url: "https://cdn.mira.example/users/me/profile-picture.jpg"
+                    url: "https://cdn.mira.example/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile-picture.jpg"
                     mimeType: "image/jpeg"
                     size: 182144
                     width: 512
@@ -1711,7 +1764,7 @@ paths:
                     title: "Bad Request"
                     status: 400
                     detail: "Multipart request validation failed"
-                    instance: "/v1/me/profile-picture"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile-picture"
                     errors:
                       - field: "file"
                         message: "must contain a file"
@@ -1730,7 +1783,7 @@ paths:
                     title: "Payload Too Large"
                     status: 413
                     detail: "Uploaded profile picture exceeds the maximum allowed size"
-                    instance: "/v1/me/profile-picture"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile-picture"
         '415':
           description: Uploaded file type is not supported.
           content:
@@ -1744,7 +1797,7 @@ paths:
                     title: "Unsupported Media Type"
                     status: 415
                     detail: "Uploaded profile picture type is not supported"
-                    instance: "/v1/me/profile-picture"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile-picture"
         '422':
           description: Business validation failed.
           content:
@@ -1758,14 +1811,14 @@ paths:
                     title: "Unprocessable Entity"
                     status: 422
                     detail: "Business validation failed"
-                    instance: "/v1/me/profile-picture"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile-picture"
                     errors:
                       - field: "file"
                         message: "image dimensions are below the minimum allowed size"
 
     delete:
-      summary: Delete my profile picture
-      description: Deletes the authenticated user's custom profile picture and restores the default profile picture.
+      summary: Delete user's profile picture
+      description: Deletes the specified user's custom profile picture and restores the default profile picture. This endpoint is accessible only when userId matches the authenticated user.
       tags:
         - Users (Profile Picture)
       security:
