@@ -13,6 +13,33 @@ servers:
     description: Local development server for the Mira REST API
 
 paths:
+  /v1/service-tags:
+    get:
+      summary: List service tags
+      description: Returns the predefined service tags that can be assigned to listings.
+      tags:
+        - Listings (Public)
+      responses:
+        '200':
+          description: Service tags retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceTagCollectionResponse'
+              examples:
+                default:
+                  summary: Example service tags
+                  value:
+                    items:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
+                      - tagId: "5f5b9e3a-0c7c-45f4-9d8d-59f1d15a2a77"
+                        name: "Wheelchair accessible"
+                        isBarrierefrei: true
+                        isActive: true
+
   /v1/listings:
     get:
       summary: List public listings
@@ -20,13 +47,15 @@ paths:
       tags:
         - Listings (Public)
       parameters:
-        - name: categoryId
+        - name: tagIds
           in: query
           required: false
-          description: Filter listings by service category UUID.
+          description: Filter listings by one or more predefined service tag UUIDs.
           schema:
-            type: string
-            format: uuid
+            type: array
+            items:
+              type: string
+              format: uuid
 
         - name: city
           in: query
@@ -85,7 +114,11 @@ paths:
                   value:
                     items:
                       - listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-                        categoryId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        tags:
+                          - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                            name: "Laptop support"
+                            isBarrierefrei: false
+                            isActive: true
                         title: "Laptop setup and software installation"
                         price: 25.0
                         author:
@@ -140,7 +173,8 @@ paths:
               default:
                 summary: Example listing creation request
                 value:
-                  categoryId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                  tagIds:
+                    - "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
                   title: "Laptop setup and software installation"
                   description: "I help with setting up laptops, installing software, and solving basic PC issues."
                   price: 25.0
@@ -159,7 +193,8 @@ paths:
               required: true
               schema:
                 type: string
-                example: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                examples:
+                  - "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
           content:
             application/json:
               schema:
@@ -169,7 +204,11 @@ paths:
                   summary: Example created listing
                   value:
                     listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-                    categoryId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
                     title: "Laptop setup and software installation"
                     description: "I help with setting up laptops, installing software, and solving basic PC issues."
                     price: 25.0
@@ -235,8 +274,8 @@ paths:
                     detail: "Business validation failed"
                     instance: "/v1/listings"
                     errors:
-                      - field: "categoryId"
-                        message: "category is not available for listing creation"
+                      - field: "tagIds"
+                        message: "one or more selected tags are not available for listing creation"
                       - field: "location"
                         message: "the provided address could not be geocoded"
         '503':
@@ -262,7 +301,11 @@ paths:
                   summary: Example listing details
                   value:
                     listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-                    categoryId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
                     title: "Laptop setup and software installation"
                     description: "I help with setting up laptops, installing software, and solving basic PC issues."
                     price: 25.0
@@ -338,7 +381,11 @@ paths:
                   summary: Example updated listing
                   value:
                     listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-                    categoryId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
                     title: "Laptop setup, software installation, and troubleshooting"
                     description: "I help with setting up laptops, installing software, and solving basic PC issues."
                     price: 30.0
@@ -493,6 +540,196 @@ paths:
                     detail: "Listings with active bookings cannot be deleted"
                     instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
 
+  /v1/users/{userId}/public-profile/listings:
+    parameters:
+      - $ref: '#/components/parameters/UserIdParam'
+    get:
+      summary: List public listings from user's public profile
+      description: Returns a paginated list of publicly visible listings owned by the specified user. A listing is visible in public endpoints only when publicationStatus is ACTIVE and moderationStatus is VISIBLE.
+      tags:
+        - Listings (Public)
+      parameters:
+        - name: tagIds
+          in: query
+          required: false
+          description: Filter listings by one or more predefined service tag UUIDs.
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+        - name: city
+          in: query
+          required: false
+          description: Filter listings by city.
+          schema:
+            type: string
+        - name: minPrice
+          in: query
+          required: false
+          description: Minimum price, inclusive.
+          schema:
+            type: number
+            format: double
+            minimum: 0
+        - name: maxPrice
+          in: query
+          required: false
+          description: Maximum price, inclusive.
+          schema:
+            type: number
+            format: double
+            minimum: 0
+        - name: page
+          in: query
+          required: false
+          description: Zero-based page index.
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          description: Number of items per page.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: User public profile listings retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicListingCollectionResponse'
+              examples:
+                default:
+                  summary: Example public profile listings
+                  value:
+                    items:
+                      - listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                        tags:
+                          - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                            name: "Laptop support"
+                            isBarrierefrei: false
+                            isActive: true
+                        title: "Laptop setup and software installation"
+                        price: 25.0
+                        author:
+                          name: "Anna"
+                          surname: "Schmidt"
+                        publishedAt: "2026-04-20T13:00:00Z"
+                        location:
+                          city: "Berlin"
+                          postalCode: "10115"
+                          serviceRadiusKm: 15
+                        primaryMedia:
+                          mediaId: "11111111-2222-3333-4444-555555555555"
+                          url: "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+                          altText: "Open laptop on a wooden desk"
+                    page:
+                      page: 0
+                      size: 20
+                      totalElements: 1
+                      totalPages: 1
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidPagination:
+                  value:
+                    type: "https://api.mira.example/problems/invalid-query-parameter"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Query parameter validation failed"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/public-profile/listings"
+                    errors:
+                      - field: "size"
+                        message: "must be less than or equal to 100"
+        '404':
+          description: User public profile not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "User public profile with the given identifier was not found"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/public-profile/listings"
+
+  /v1/users/{userId}/public-profile/listings/{listingId}:
+    parameters:
+      - $ref: '#/components/parameters/UserIdParam'
+      - $ref: '#/components/parameters/ListingIdParam'
+    get:
+      summary: Get public listing from user's public profile
+      description: Returns a publicly visible listing owned by the specified user. A listing is visible in public endpoints only when publicationStatus is ACTIVE and moderationStatus is VISIBLE. Listings that do not belong to the user or are not publicly visible are returned as not found.
+      tags:
+        - Listings (Public)
+      responses:
+        '200':
+          description: User public profile listing retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicListingDetails'
+              examples:
+                default:
+                  summary: Example public profile listing details
+                  value:
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
+                    title: "Laptop setup and software installation"
+                    description: "I help with setting up laptops, installing software, and solving basic PC issues."
+                    price: 25.0
+                    publicationStatus: "ACTIVE"
+                    author:
+                      name: "Anna"
+                      surname: "Schmidt"
+                    createdAt: "2026-04-20T12:00:00Z"
+                    updatedAt: "2026-04-20T13:00:00Z"
+                    publishedAt: "2026-04-20T13:00:00Z"
+                    location:
+                      city: "Berlin"
+                      postalCode: "10115"
+                      serviceRadiusKm: 15
+                    media:
+                      - mediaId: "11111111-2222-3333-4444-555555555555"
+                        url: "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+                        altText: "Open laptop on a wooden desk"
+                        mimeType: "image/jpeg"
+                        size: 248576
+                        width: 1280
+                        height: 720
+                        createdAt: "2026-04-20T16:10:00Z"
+        '404':
+          description: User public profile or listing not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "User public profile or listing with the given identifier was not found"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/public-profile/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+
   /v1/users/{userId}/listings:
     parameters:
       - $ref: '#/components/parameters/UserIdParam'
@@ -510,13 +747,15 @@ paths:
           description: Filter listings by publication status.
           schema:
             $ref: '#/components/schemas/PublicationStatus'
-        - name: categoryId
+        - name: tagIds
           in: query
           required: false
-          description: Filter listings by service category UUID.
+          description: Filter listings by one or more predefined service tag UUIDs.
           schema:
-            type: string
-            format: uuid
+            type: array
+            items:
+              type: string
+              format: uuid
         - name: page
           in: query
           required: false
@@ -547,7 +786,11 @@ paths:
                   value:
                     items:
                       - listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-                        categoryId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        tags:
+                          - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                            name: "Laptop support"
+                            isBarrierefrei: false
+                            isActive: true
                         title: "Laptop setup and software installation"
                         description: "I help with setting up laptops, installing software, and solving basic PC issues."
                         price: 25.0
@@ -613,7 +856,11 @@ paths:
                   summary: Example my listing details
                   value:
                     listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-                    categoryId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
                     title: "Laptop setup and software installation"
                     description: "I help with setting up laptops, installing software, and solving basic PC issues."
                     price: 25.0
@@ -677,7 +924,11 @@ paths:
                   summary: Example published listing
                   value:
                     listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-                    categoryId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
                     title: "Laptop setup and software installation"
                     description: "I help with setting up laptops, installing software, and solving basic PC issues."
                     price: 25.0
@@ -790,7 +1041,11 @@ paths:
                   summary: Example paused listing
                   value:
                     listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-                    categoryId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
                     title: "Laptop setup and software installation"
                     description: "I help with setting up laptops, installing software, and solving basic PC issues."
                     price: 25.0
@@ -882,7 +1137,11 @@ paths:
                   summary: Example resumed listing
                   value:
                     listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-                    categoryId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
                     title: "Laptop setup and software installation"
                     description: "I help with setting up laptops, installing software, and solving basic PC issues."
                     price: 25.0
@@ -982,7 +1241,11 @@ paths:
                   value:
                     items:
                       - listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-                        categoryId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        tags:
+                          - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                            name: "Laptop support"
+                            isBarrierefrei: false
+                            isActive: true
                         title: "Laptop setup and software installation"
                         description: "I help with setting up laptops, installing software, and solving basic PC issues."
                         price: 25.0
@@ -1070,7 +1333,8 @@ paths:
               required: true
               schema:
                 type: string
-                example: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/report/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+                examples:
+                  - "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/report/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
           content:
             application/json:
               schema:
@@ -1081,9 +1345,25 @@ paths:
                   value:
                     reportId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
                     listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-                    status: "PENDING"
                     message: "This listing contains misleading information and appears to violate platform rules."
                     createdAt: "2026-04-21T10:00:00Z"
+        '400':
+          description: Invalid request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Request body validation failed"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/report"
+                    errors:
+                      - field: "message"
+                        message: "must contain at least 10 characters"
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -1162,7 +1442,11 @@ paths:
                   summary: Example moderated listing after approved report
                   value:
                     listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-                    categoryId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
                     title: "Laptop setup and software installation"
                     description: "I help with setting up laptops, installing software, and solving basic PC issues."
                     price: 25.0
@@ -1187,6 +1471,23 @@ paths:
                         width: 1280
                         height: 720
                         createdAt: "2026-04-20T16:10:00Z"
+        '400':
+          description: Invalid request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Request body validation failed"
+                    instance: "/v1/admin/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/block"
+                    errors:
+                      - field: "comment"
+                        message: "must contain at least 5 characters"
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -1282,7 +1583,11 @@ paths:
                   summary: Example listing after rejected report
                   value:
                     listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-                    categoryId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
                     title: "Laptop setup and software installation"
                     description: "I help with setting up laptops, installing software, and solving basic PC issues."
                     price: 25.0
@@ -1307,6 +1612,23 @@ paths:
                         width: 1280
                         height: 720
                         createdAt: "2026-04-20T16:10:00Z"
+        '400':
+          description: Invalid request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Request body validation failed"
+                    instance: "/v1/admin/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/dismiss-report"
+                    errors:
+                      - field: "comment"
+                        message: "must contain at least 5 characters"
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -1666,10 +1988,12 @@ paths:
                     detail: "Media of deleted listings cannot be deleted"
                     instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/media/11111111-2222-3333-4444-555555555555"
 
-  /v1/me/profile-picture:
+  /v1/users/{userId}/profile-picture:
+    parameters:
+      - $ref: '#/components/parameters/UserIdParam'
     put:
-      summary: Replace my profile picture
-      description: Uploads or replaces the authenticated user's profile picture.
+      summary: Replace user's profile picture
+      description: Uploads or replaces the specified user's profile picture. This endpoint is accessible only when userId matches the authenticated user.
       tags:
         - Users (Profile Picture)
       security:
@@ -1692,7 +2016,7 @@ paths:
                   summary: Example replaced profile picture
                   value:
                     mediaId: "22222222-3333-4444-5555-666666666666"
-                    url: "https://cdn.mira.example/users/me/profile-picture.jpg"
+                    url: "https://cdn.mira.example/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile-picture.jpg"
                     mimeType: "image/jpeg"
                     size: 182144
                     width: 512
@@ -1711,7 +2035,7 @@ paths:
                     title: "Bad Request"
                     status: 400
                     detail: "Multipart request validation failed"
-                    instance: "/v1/me/profile-picture"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile-picture"
                     errors:
                       - field: "file"
                         message: "must contain a file"
@@ -1730,7 +2054,7 @@ paths:
                     title: "Payload Too Large"
                     status: 413
                     detail: "Uploaded profile picture exceeds the maximum allowed size"
-                    instance: "/v1/me/profile-picture"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile-picture"
         '415':
           description: Uploaded file type is not supported.
           content:
@@ -1744,7 +2068,7 @@ paths:
                     title: "Unsupported Media Type"
                     status: 415
                     detail: "Uploaded profile picture type is not supported"
-                    instance: "/v1/me/profile-picture"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile-picture"
         '422':
           description: Business validation failed.
           content:
@@ -1758,14 +2082,14 @@ paths:
                     title: "Unprocessable Entity"
                     status: 422
                     detail: "Business validation failed"
-                    instance: "/v1/me/profile-picture"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile-picture"
                     errors:
                       - field: "file"
                         message: "image dimensions are below the minimum allowed size"
 
     delete:
-      summary: Delete my profile picture
-      description: Deletes the authenticated user's custom profile picture and restores the default profile picture.
+      summary: Delete user's profile picture
+      description: Deletes the specified user's custom profile picture and restores the default profile picture. This endpoint is accessible only when userId matches the authenticated user.
       tags:
         - Users (Profile Picture)
       security:
@@ -1837,34 +2161,83 @@ components:
                 detail: "Geocoding service is temporarily unavailable"
                 instance: "/v1/listings/{listingId}"
   schemas:
+    ServiceTag:
+      type: object
+      required:
+        - tagId
+        - name
+        - isBarrierefrei
+        - isActive
+      properties:
+        tagId:
+          type: string
+          format: uuid
+          examples:
+            - "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          examples:
+            - "Laptop support"
+        isBarrierefrei:
+          type: boolean
+          description: Indicates whether this tag belongs to the barrierefrei tag group.
+          examples:
+            - false
+        isActive:
+          type: boolean
+          description: Indicates whether this predefined tag can currently be selected for listings.
+          examples:
+            - true
+
+    ServiceTagCollectionResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceTag'
+
     CreateListingRequest:
       type: object
       required:
-        - categoryId
+        - tagIds
         - title
         - description
         - price
         - location
       properties:
-        categoryId:
-          type: string
-          format: uuid
-          example: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+        tagIds:
+          type: array
+          minItems: 1
+          maxItems: 10
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+          examples:
+            - ["dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"]
         title:
           type: string
           minLength: 3
           maxLength: 120
-          example: "Laptop setup and software installation"
+          examples:
+            - "Laptop setup and software installation"
         description:
           type: string
           minLength: 10
           maxLength: 2000
-          example: "I help with setting up laptops, installing software, and solving basic PC issues."
+          examples:
+            - "I help with setting up laptops, installing software, and solving basic PC issues."
         price:
           type: number
           format: double
           minimum: 0
-          example: 25.0
+          examples:
+            - 25.0
         location:
           $ref: '#/components/schemas/ListingLocationRequest'
 
@@ -1872,25 +2245,34 @@ components:
       type: object
       minProperties: 1
       properties:
-        categoryId:
-          type: string
-          format: uuid
-          example: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+        tagIds:
+          type: array
+          minItems: 1
+          maxItems: 10
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+          examples:
+            - ["dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"]
         title:
           type: string
           minLength: 3
           maxLength: 120
-          example: "Laptop setup, software installation, and troubleshooting"
+          examples:
+            - "Laptop setup, software installation, and troubleshooting"
         description:
           type: string
           minLength: 10
           maxLength: 2000
-          example: "I help with setup, installation, troubleshooting, and performance tuning."
+          examples:
+            - "I help with setup, installation, troubleshooting, and performance tuning."
         price:
           type: number
           format: double
           minimum: 0
-          example: 30.0
+          examples:
+            - 30.0
         location:
           $ref: '#/components/schemas/ListingLocationRequest'
 
@@ -1903,7 +2285,8 @@ components:
           type: string
           minLength: 10
           maxLength: 2000
-          example: "This listing contains misleading information and appears to violate platform rules."
+          examples:
+            - "This listing contains misleading information and appears to violate platform rules."
 
     ModerateListingRequest:
       type: object
@@ -1914,40 +2297,34 @@ components:
           type: string
           minLength: 5
           maxLength: 2000
-          example: "The report is valid. The listing violates platform rules and has been hidden from public view."
+          examples:
+            - "The report is valid. The listing violates platform rules and has been hidden from public view."
 
     ListingReportResponse:
       type: object
       required:
         - reportId
         - listingId
-        - status
         - message
         - createdAt
       properties:
         reportId:
           type: string
           format: uuid
-          example: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+          examples:
+            - "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
         listingId:
           type: string
           format: uuid
-          example: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-        status:
-          $ref: '#/components/schemas/ListingReportStatus'
+          examples:
+            - "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
         message:
           type: string
-          example: "This listing contains misleading information and appears to violate platform rules."
+          examples:
+            - "This listing contains misleading information and appears to violate platform rules."
         createdAt:
           type: string
           format: date-time
-
-    ListingReportStatus:
-      type: string
-      enum:
-        - PENDING
-        - APPROVED
-        - REJECTED
 
     UploadListingMediaRequest:
       type: object
@@ -1970,7 +2347,8 @@ components:
           type: string
           minLength: 1
           maxLength: 255
-          example: "Laptop repair tools on a desk"
+          examples:
+            - "Laptop repair tools on a desk"
 
     ListingMediaItem:
       type: object
@@ -1986,32 +2364,39 @@ components:
         mediaId:
           type: string
           format: uuid
-          example: "11111111-2222-3333-4444-555555555555"
+          examples:
+            - "11111111-2222-3333-4444-555555555555"
         url:
           type: string
           format: uri
-          example: "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+          examples:
+            - "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
         altText:
           type:
             - string
             - "null"
-          example: "Open laptop on a wooden desk"
+          examples:
+            - "Open laptop on a wooden desk"
         mimeType:
           type: string
-          example: "image/jpeg"
+          examples:
+            - "image/jpeg"
         size:
           type: integer
           format: int64
           minimum: 1
-          example: 248576
+          examples:
+            - 248576
         width:
           type: integer
           minimum: 1
-          example: 1280
+          examples:
+            - 1280
         height:
           type: integer
           minimum: 1
-          example: 720
+          examples:
+            - 720
         createdAt:
           type: string
           format: date-time
@@ -2025,16 +2410,19 @@ components:
         mediaId:
           type: string
           format: uuid
-          example: "11111111-2222-3333-4444-555555555555"
+          examples:
+            - "11111111-2222-3333-4444-555555555555"
         url:
           type: string
           format: uri
-          example: "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+          examples:
+            - "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
         altText:
           type:
             - string
             - "null"
-          example: "Open laptop on a wooden desk"
+          examples:
+            - "Open laptop on a wooden desk"
 
     UploadProfilePictureRequest:
       type: object
@@ -2048,7 +2436,8 @@ components:
           type: string
           minLength: 1
           maxLength: 255
-          example: "Portrait photo of Anna Schmidt"
+          examples:
+            - "Portrait photo of Anna Schmidt"
 
     ProfilePicture:
       type: object
@@ -2064,32 +2453,39 @@ components:
         mediaId:
           type: string
           format: uuid
-          example: "22222222-3333-4444-5555-666666666666"
+          examples:
+            - "22222222-3333-4444-5555-666666666666"
         url:
           type: string
           format: uri
-          example: "https://cdn.mira.example/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile-picture.jpg"
+          examples:
+            - "https://cdn.mira.example/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile-picture.jpg"
         altText:
           type:
             - string
             - "null"
-          example: "Portrait photo of Anna Schmidt"
+          examples:
+            - "Portrait photo of Anna Schmidt"
         mimeType:
           type: string
-          example: "image/jpeg"
+          examples:
+            - "image/jpeg"
         size:
           type: integer
           format: int64
           minimum: 1
-          example: 182144
+          examples:
+            - 182144
         width:
           type: integer
           minimum: 1
-          example: 512
+          examples:
+            - 512
         height:
           type: integer
           minimum: 1
-          example: 512
+          examples:
+            - 512
         createdAt:
           type: string
           format: date-time
@@ -2104,7 +2500,8 @@ components:
             activeReportCount:
               type: integer
               minimum: 1
-              example: 2
+              examples:
+                - 2
 
     AdminReportedListingCollectionResponse:
       type: object
@@ -2143,19 +2540,22 @@ components:
       properties:
         fileName:
           type: string
-          example: "too-large.png"
+          examples:
+            - "too-large.png"
         errorCode:
           type: string
-          example: "FILE_TOO_LARGE"
+          examples:
+            - "FILE_TOO_LARGE"
         message:
           type: string
-          example: "File exceeds the maximum allowed size"
+          examples:
+            - "File exceeds the maximum allowed size"
 
     PublicListingSummary:
       type: object
       required:
         - listingId
-        - categoryId
+        - tags
         - title
         - price
         - author
@@ -2165,18 +2565,21 @@ components:
         listingId:
           type: string
           format: uuid
-          example: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-        categoryId:
-          type: string
-          format: uuid
-          example: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+          examples:
+            - "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceTag'
         title:
           type: string
-          example: "Laptop setup and software installation"
+          examples:
+            - "Laptop setup and software installation"
         price:
           type: number
           format: double
-          example: 25.0
+          examples:
+            - 25.0
         author:
           $ref: '#/components/schemas/ListingAuthor'
         publishedAt:
@@ -2193,7 +2596,7 @@ components:
       type: object
       required:
         - listingId
-        - categoryId
+        - tags
         - title
         - description
         - price
@@ -2207,21 +2610,25 @@ components:
         listingId:
           type: string
           format: uuid
-          example: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-        categoryId:
-          type: string
-          format: uuid
-          example: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+          examples:
+            - "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceTag'
         title:
           type: string
-          example: "Laptop setup and software installation"
+          examples:
+            - "Laptop setup and software installation"
         description:
           type: string
-          example: "I help with setting up laptops, installing software, and solving basic PC issues."
+          examples:
+            - "I help with setting up laptops, installing software, and solving basic PC issues."
         price:
           type: number
           format: double
-          example: 25.0
+          examples:
+            - 25.0
         publicationStatus:
           $ref: '#/components/schemas/PublicationStatus'
         author:
@@ -2250,7 +2657,7 @@ components:
       type: object
       required:
         - listingId
-        - categoryId
+        - tags
         - title
         - description
         - price
@@ -2263,21 +2670,25 @@ components:
         listingId:
           type: string
           format: uuid
-          example: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-        categoryId:
-          type: string
-          format: uuid
-          example: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+          examples:
+            - "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceTag'
         title:
           type: string
-          example: "Laptop setup and software installation"
+          examples:
+            - "Laptop setup and software installation"
         description:
           type: string
-          example: "I help with setting up laptops, installing software, and solving basic PC issues."
+          examples:
+            - "I help with setting up laptops, installing software, and solving basic PC issues."
         price:
           type: number
           format: double
-          example: 25.0
+          examples:
+            - 25.0
         publicationStatus:
           $ref: '#/components/schemas/PublicationStatus'
         moderationStatus:
@@ -2298,7 +2709,7 @@ components:
       type: object
       required:
         - listingId
-        - categoryId
+        - tags
         - title
         - description
         - price
@@ -2313,21 +2724,25 @@ components:
         listingId:
           type: string
           format: uuid
-          example: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-        categoryId:
-          type: string
-          format: uuid
-          example: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+          examples:
+            - "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceTag'
         title:
           type: string
-          example: "Laptop setup and software installation"
+          examples:
+            - "Laptop setup and software installation"
         description:
           type: string
-          example: "I help with setting up laptops, installing software, and solving basic PC issues."
+          examples:
+            - "I help with setting up laptops, installing software, and solving basic PC issues."
         price:
           type: number
           format: double
-          example: 25.0
+          examples:
+            - 25.0
         publicationStatus:
           $ref: '#/components/schemas/PublicationStatus'
         moderationStatus:
@@ -2367,26 +2782,31 @@ components:
           type: string
           minLength: 1
           maxLength: 120
-          example: "Hauptstraße"
+          examples:
+            - "Hauptstraße"
         houseNumber:
           type: string
           minLength: 1
           maxLength: 20
-          example: "10"
+          examples:
+            - "10"
         city:
           type: string
           minLength: 1
           maxLength: 120
-          example: "Berlin"
+          examples:
+            - "Berlin"
         postalCode:
           type: string
           pattern: '^\d{5}$'
           description: German postal code as exactly five digits.
-          example: "10115"
+          examples:
+            - "10115"
         serviceRadiusKm:
           type: integer
           minimum: 1
-          example: 15
+          examples:
+            - 15
 
     PublicListingLocation:
       type: object
@@ -2399,16 +2819,19 @@ components:
           type: string
           minLength: 1
           maxLength: 120
-          example: "Berlin"
+          examples:
+            - "Berlin"
         postalCode:
           type: string
           pattern: '^\d{5}$'
           description: German postal code as exactly five digits.
-          example: "10115"
+          examples:
+            - "10115"
         serviceRadiusKm:
           type: integer
           minimum: 1
-          example: 15
+          examples:
+            - 15
 
     ListingAuthor:
       type: object
@@ -2420,12 +2843,14 @@ components:
           type: string
           minLength: 1
           maxLength: 120
-          example: "Anna"
+          examples:
+            - "Anna"
         surname:
           type: string
           minLength: 1
           maxLength: 120
-          example: "Schmidt"
+          examples:
+            - "Schmidt"
 
     PublicListingCollectionResponse:
       type: object
@@ -2463,17 +2888,21 @@ components:
       properties:
         page:
           type: integer
-          example: 0
+          examples:
+            - 0
         size:
           type: integer
-          example: 20
+          examples:
+            - 20
         totalElements:
           type: integer
           format: int64
-          example: 1
+          examples:
+            - 1
         totalPages:
           type: integer
-          example: 1
+          examples:
+            - 1
 
     PublicationStatus:
       type: string
@@ -2502,19 +2931,24 @@ components:
         type:
           type: string
           format: uri
-          example: "https://api.mira.example/problems/validation-error"
+          examples:
+            - "https://api.mira.example/problems/validation-error"
         title:
           type: string
-          example: "Bad Request"
+          examples:
+            - "Bad Request"
         status:
           type: integer
-          example: 400
+          examples:
+            - 400
         detail:
           type: string
-          example: "Request body validation failed"
+          examples:
+            - "Request body validation failed"
         instance:
           type: string
-          example: "/v1/listings"
+          examples:
+            - "/v1/listings"
         errors:
           type: array
           description: Field-level validation errors when available.
@@ -2529,7 +2963,9 @@ components:
       properties:
         field:
           type: string
-          example: "title"
+          examples:
+            - "title"
         message:
           type: string
-          example: "must not be blank"
+          examples:
+            - "must not be blank"
