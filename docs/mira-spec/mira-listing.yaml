@@ -56,8 +56,6 @@ paths:
             items:
               type: string
               format: uuid
-          style: form
-          explode: false
 
         - name: city
           in: query
@@ -560,8 +558,6 @@ paths:
             items:
               type: string
               format: uuid
-          style: form
-          explode: false
         - name: city
           in: query
           required: false
@@ -760,8 +756,6 @@ paths:
             items:
               type: string
               format: uuid
-          style: form
-          explode: false
         - name: page
           in: query
           required: false
