@@ -53,15 +53,6 @@ paths:
             format: double
             minimum: 0
 
-        - name: q
-          in: query
-          required: false
-          description: Full-text search query for title or description.
-          schema:
-            type: string
-            minLength: 1
-            maxLength: 200
-
         - name: page
           in: query
           required: false
@@ -526,14 +517,6 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: q
-          in: query
-          required: false
-          description: Full-text search query for title or description.
-          schema:
-            type: string
-            minLength: 1
-            maxLength: 200
         - name: page
           in: query
           required: false
@@ -2167,16 +2150,6 @@ components:
         message:
           type: string
           example: "File exceeds the maximum allowed size"
-
-    ListingIdentifier:
-      type: object
-      required:
-        - listingId
-      properties:
-        listingId:
-          type: string
-          format: uuid
-          example: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
 
     PublicListingSummary:
       type: object

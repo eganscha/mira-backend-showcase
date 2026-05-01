@@ -4,7 +4,9 @@ info:
   version: v1
   description: >
     This API describes the booking subsystem of Mira, a platform for offering and booking services.
-    It enables consumers to discover provider availability, request bookings against published listings, providers to accept or refuse those requests, and both parties to track the booking lifecycle from request through completion. 
+    It enables consumers to discover provider availability, request bookings against published listings,
+    providers to accept or refuse those requests, and both parties to track the booking lifecycle from
+    request through completion. Provider-side calendar management endpoints are documented separately.
 
 servers:
   - url: http://127.0.0.1:8080
@@ -125,7 +127,7 @@ paths:
                 value:
                   listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
                   bookedStart: "2026-05-05T14:00:00Z"
-                  durationHours: 1.5
+                  durationHours: 1
                   locationType: "AT_CONSUMER"
                   description: "Need help installing Office and migrating files from an old laptop. Two devices total."
       responses:
@@ -169,7 +171,7 @@ paths:
                     totalPrice: 37.50
                     bookedStart: "2026-05-05T14:00:00Z"
                     bookedEnd: "2026-05-05T15:30:00Z"
-                    durationHours: 1.5
+                    durationHours: 1
                     createdAt: "2026-04-28T10:00:00Z"
                     confirmedAt: null
                     completedAt: null
@@ -195,7 +197,7 @@ paths:
                     instance: "/v1/bookings"
                     errors:
                       - field: "durationHours"
-                        message: "must be a multiple of 0.5"
+                        message: "must be a whole number of hours"
                       - field: "bookedStart"
                         message: "must be a future date-time"
         '401':
@@ -308,7 +310,7 @@ paths:
                     totalPrice: 37.50
                     bookedStart: "2026-05-05T14:00:00Z"
                     bookedEnd: "2026-05-05T15:30:00Z"
-                    durationHours: 1.5
+                    durationHours: 1
                     createdAt: "2026-04-28T10:00:00Z"
                     confirmedAt: "2026-04-28T10:30:00Z"
                     completedAt: null
@@ -391,11 +393,13 @@ paths:
                     detail: "Only pending, confirmed, or paid bookings can be cancelled before delivery acknowledgement begins"
                     instance: "/v1/bookings/3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
 
-  /v1/me/bookings:
+  /v1/users/{userId}/bookings:
+    parameters:
+      - $ref: '#/components/parameters/UserIdParam'
     get:
-      summary: List my bookings
+      summary: List a user's bookings (as consumer)
       description: >
-        Returns a cursor-paginated list of bookings created by the authenticated user as a consumer, sorted by bookedStart in descending order.
+        Returns a cursor-paginated list of bookings created by the user as a consumer, sorted by bookedStart in descending order. The userId in the path must match the authenticated user, or the authenticated user must have administrator privileges.
       tags:
         - Bookings
       security:
@@ -418,7 +422,7 @@ paths:
                 $ref: '#/components/schemas/BookingCollectionResponse'
               examples:
                 default:
-                  summary: Example list of my bookings
+                  summary: Example list of the user's bookings
                   value:
                     items:
                       - bookingId: "3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
@@ -439,7 +443,7 @@ paths:
                         totalPrice: 37.50
                         bookedStart: "2026-05-05T14:00:00Z"
                         bookedEnd: "2026-05-05T15:30:00Z"
-                        durationHours: 1.5
+                        durationHours: 1
                         createdAt: "2026-04-28T10:00:00Z"
                     page:
                       limit: 20
@@ -457,18 +461,48 @@ paths:
                     title: "Bad Request"
                     status: 400
                     detail: "Query parameter validation failed"
-                    instance: "/v1/me/bookings"
+                    instance: "/v1/users/11aa11aa-1111-1111-1111-aaaaaaaaaaaa/bookings"
                     errors:
                       - field: "limit"
                         message: "must be less than or equal to 100"
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to access this user's bookings.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notOwner:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to access this user's bookings"
+                    instance: "/v1/users/11aa11aa-1111-1111-1111-aaaaaaaaaaaa/bookings"
+        '404':
+          description: Target user not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "User with the given identifier was not found"
+                    instance: "/v1/users/11aa11aa-1111-1111-1111-aaaaaaaaaaaa/bookings"
 
-  /v1/me/incoming-bookings:
+  /v1/users/{userId}/incoming-bookings:
+    parameters:
+      - $ref: '#/components/parameters/UserIdParam'
     get:
-      summary: List incoming bookings
+      summary: List a user's incoming bookings (as provider)
       description: >
-        Returns a cursor-paginated list of bookings made against listings owned by the authenticated user. Defaults to PENDING; use the status query parameter to retrieve other states.
+        Returns a cursor-paginated list of bookings made against listings owned by the user. Defaults to PENDING; use the status query parameter to retrieve other states. The userId in the path must match the authenticated user, or the authenticated user must have administrator privileges.
       tags:
         - Bookings
       security:
@@ -491,7 +525,7 @@ paths:
                 $ref: '#/components/schemas/BookingCollectionResponse'
               examples:
                 default:
-                  summary: Example list of incoming bookings
+                  summary: Example list of the user's incoming bookings
                   value:
                     items:
                       - bookingId: "3f2a1c8e-2b4d-4f6a-9c1e-7d8b2a5e3f10"
@@ -512,7 +546,7 @@ paths:
                         totalPrice: 37.50
                         bookedStart: "2026-05-05T14:00:00Z"
                         bookedEnd: "2026-05-05T15:30:00Z"
-                        durationHours: 1.5
+                        durationHours: 1
                         createdAt: "2026-04-28T10:00:00Z"
                     page:
                       limit: 20
@@ -530,12 +564,40 @@ paths:
                     title: "Bad Request"
                     status: 400
                     detail: "Query parameter validation failed"
-                    instance: "/v1/me/incoming-bookings"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/incoming-bookings"
                     errors:
                       - field: "limit"
                         message: "must be less than or equal to 100"
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to access this user's incoming bookings.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notOwner:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to access this user's incoming bookings"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/incoming-bookings"
+        '404':
+          description: Target user not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "User with the given identifier was not found"
+                    instance: "/v1/users/22bb22bb-2222-2222-2222-bbbbbbbbbbbb/incoming-bookings"
 
   /v1/bookings/{bookingId}/accept:
     parameters:
@@ -582,7 +644,7 @@ paths:
                     totalPrice: 37.50
                     bookedStart: "2026-05-05T14:00:00Z"
                     bookedEnd: "2026-05-05T15:30:00Z"
-                    durationHours: 1.5
+                    durationHours: 1
                     createdAt: "2026-04-28T10:00:00Z"
                     confirmedAt: "2026-04-28T10:30:00Z"
                     completedAt: null
@@ -693,7 +755,7 @@ paths:
                     totalPrice: 37.50
                     bookedStart: "2026-05-05T14:00:00Z"
                     bookedEnd: "2026-05-05T15:30:00Z"
-                    durationHours: 1.5
+                    durationHours: 1
                     createdAt: "2026-04-28T10:00:00Z"
                     confirmedAt: null
                     completedAt: null
@@ -810,7 +872,7 @@ paths:
                     totalPrice: 37.50
                     bookedStart: "2026-05-05T14:00:00Z"
                     bookedEnd: "2026-05-05T15:30:00Z"
-                    durationHours: 1.5
+                    durationHours: 1
                     createdAt: "2026-04-28T10:00:00Z"
                     confirmedAt: "2026-04-28T10:30:00Z"
                     completedAt: null
@@ -846,7 +908,7 @@ paths:
                     totalPrice: 37.50
                     bookedStart: "2026-05-05T14:00:00Z"
                     bookedEnd: "2026-05-05T15:30:00Z"
-                    durationHours: 1.5
+                    durationHours: 1
                     createdAt: "2026-04-28T10:00:00Z"
                     confirmedAt: "2026-04-28T10:30:00Z"
                     completedAt: "2026-05-05T15:35:00Z"
@@ -946,7 +1008,7 @@ paths:
                     totalPrice: 37.50
                     bookedStart: "2026-05-05T14:00:00Z"
                     bookedEnd: "2026-05-05T15:30:00Z"
-                    durationHours: 1.5
+                    durationHours: 1
                     createdAt: "2026-04-28T10:00:00Z"
                     confirmedAt: "2026-04-28T10:30:00Z"
                     completedAt: null
@@ -982,7 +1044,7 @@ paths:
                     totalPrice: 37.50
                     bookedStart: "2026-05-05T14:00:00Z"
                     bookedEnd: "2026-05-05T15:30:00Z"
-                    durationHours: 1.5
+                    durationHours: 1
                     createdAt: "2026-04-28T10:00:00Z"
                     confirmedAt: "2026-04-28T10:30:00Z"
                     completedAt: "2026-05-05T15:35:00Z"
@@ -1062,6 +1124,14 @@ components:
       schema:
         type: string
         format: uuid
+    UserIdParam:
+      name: userId
+      in: path
+      required: true
+      description: User UUID.
+      schema:
+        type: string
+        format: uuid
     LimitParam:
       name: limit
       in: query
@@ -1118,13 +1188,11 @@ components:
           description: ISO-8601 start of the requested service window. Must be a future date-time.
           example: "2026-05-05T14:00:00Z"
         durationHours:
-          type: number
-          format: double
-          minimum: 0.5
+          type: integer
+          minimum: 1
           maximum: 12
-          multipleOf: 0.5
-          description: Length of the requested service window in hours. Must be a multiple of 0.5.
-          example: 1.5
+          description: Length of the requested service window in whole hours.
+          example: 1
         locationType:
           $ref: '#/components/schemas/LocationType'
         description:
@@ -1200,9 +1268,8 @@ components:
           format: date-time
           example: "2026-05-05T15:30:00Z"
         durationHours:
-          type: number
-          format: double
-          example: 1.5
+          type: integer
+          example: 1
         createdAt:
           type: string
           format: date-time
@@ -1276,9 +1343,8 @@ components:
           format: date-time
           example: "2026-05-05T15:30:00Z"
         durationHours:
-          type: number
-          format: double
-          example: 1.5
+          type: integer
+          example: 1
         createdAt:
           type: string
           format: date-time
@@ -1548,4 +1614,4 @@ components:
           example: "durationHours"
         message:
           type: string
-          example: "must be a multiple of 0.5"
+          example: "must be a whole number of hours"
