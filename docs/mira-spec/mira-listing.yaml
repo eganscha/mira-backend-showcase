@@ -1345,7 +1345,6 @@ paths:
                   value:
                     reportId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
                     listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-                    status: "PENDING"
                     message: "This listing contains misleading information and appears to violate platform rules."
                     createdAt: "2026-04-21T10:00:00Z"
         '400':
@@ -2306,7 +2305,6 @@ components:
       required:
         - reportId
         - listingId
-        - status
         - message
         - createdAt
       properties:
@@ -2320,8 +2318,6 @@ components:
           format: uuid
           examples:
             - "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
-        status:
-          $ref: '#/components/schemas/ListingReportStatus'
         message:
           type: string
           examples:
@@ -2329,13 +2325,6 @@ components:
         createdAt:
           type: string
           format: date-time
-
-    ListingReportStatus:
-      type: string
-      enum:
-        - PENDING
-        - APPROVED
-        - REJECTED
 
     UploadListingMediaRequest:
       type: object
