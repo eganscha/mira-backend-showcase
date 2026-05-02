@@ -1,0 +1,2971 @@
+openapi: 3.1.0
+info:
+  title: Mira OpenAPI Spec
+  version: v1
+  description: >
+    This API describes the backend of Mira, a platform for offering and booking services.
+    It enables users to search for service providers, view service details, manage bookings,
+    communicate with each other, and handle payments and scheduling.
+    The platform is designed to support everyday local services in a simple and accessible way.
+
+servers:
+  - url: http://127.0.0.1:8081
+    description: Local development server for the Mira REST API
+
+paths:
+  /v1/service-tags:
+    get:
+      summary: List service tags
+      description: Returns the predefined service tags that can be assigned to listings.
+      tags:
+        - Listings (Public)
+      responses:
+        '200':
+          description: Service tags retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceTagCollectionResponse'
+              examples:
+                default:
+                  summary: Example service tags
+                  value:
+                    items:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
+                      - tagId: "5f5b9e3a-0c7c-45f4-9d8d-59f1d15a2a77"
+                        name: "Wheelchair accessible"
+                        isBarrierefrei: true
+                        isActive: true
+
+  /v1/listings:
+    get:
+      summary: List public listings
+      description: Returns a paginated list of publicly visible listings. A listing is visible in public endpoints only when publicationStatus is ACTIVE and moderationStatus is VISIBLE.
+      tags:
+        - Listings (Public)
+      parameters:
+        - name: tagIds
+          in: query
+          required: false
+          description: Filter listings by one or more predefined service tag UUIDs.
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+
+        - name: city
+          in: query
+          required: false
+          description: Filter listings by city.
+          schema:
+            type: string
+
+        - name: minPrice
+          in: query
+          required: false
+          description: Minimum price, inclusive.
+          schema:
+            type: number
+            format: double
+            minimum: 0
+
+        - name: maxPrice
+          in: query
+          required: false
+          description: Maximum price, inclusive.
+          schema:
+            type: number
+            format: double
+            minimum: 0
+
+        - name: page
+          in: query
+          required: false
+          description: Zero-based page index.
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+
+        - name: size
+          in: query
+          required: false
+          description: Number of items per page.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+
+      responses:
+        '200':
+          description: Listings retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicListingCollectionResponse'
+              examples:
+                default:
+                  summary: Example list of public listings
+                  value:
+                    items:
+                      - listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                        tags:
+                          - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                            name: "Laptop support"
+                            isBarrierefrei: false
+                            isActive: true
+                        title: "Laptop setup and software installation"
+                        price: 25.0
+                        author:
+                          name: "Anna"
+                          surname: "Schmidt"
+                        publishedAt: "2026-04-20T13:00:00Z"
+                        location:
+                          city: "Berlin"
+                          postalCode: "10115"
+                          serviceRadiusKm: 15
+                        primaryMedia:
+                          mediaId: "11111111-2222-3333-4444-555555555555"
+                          url: "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+                          altText: "Open laptop on a wooden desk"
+                    page:
+                      page: 0
+                      size: 20
+                      totalElements: 1
+                      totalPages: 1
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidPagination:
+                  value:
+                    type: "https://api.mira.example/problems/invalid-query-parameter"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Query parameter validation failed"
+                    instance: "/v1/listings"
+                    errors:
+                      - field: "size"
+                        message: "must be less than or equal to 100"
+
+    post:
+      summary: Create a new listing
+      description: Creates a draft listing for the authenticated user. The provided location is synchronously validated and geocoded before the listing is created.
+      tags:
+        - Listings (Author)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateListingRequest'
+            examples:
+              default:
+                summary: Example listing creation request
+                value:
+                  tagIds:
+                    - "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                  title: "Laptop setup and software installation"
+                  description: "I help with setting up laptops, installing software, and solving basic PC issues."
+                  price: 25.0
+                  location:
+                    street: "Hauptstraße"
+                    houseNumber: "10"
+                    city: "Berlin"
+                    postalCode: "10115"
+                    serviceRadiusKm: 15
+      responses:
+        '201':
+          description: Listing created successfully.
+          headers:
+            Location:
+              description: URI of the created listing resource.
+              required: true
+              schema:
+                type: string
+                examples:
+                  - "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingDetails'
+              examples:
+                default:
+                  summary: Example created listing
+                  value:
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
+                    title: "Laptop setup and software installation"
+                    description: "I help with setting up laptops, installing software, and solving basic PC issues."
+                    price: 25.0
+                    publicationStatus: "DRAFT"
+                    moderationStatus: "VISIBLE"
+                    author:
+                      name: "Anna"
+                      surname: "Schmidt"
+                    createdAt: "2026-04-20T12:00:00Z"
+                    updatedAt: "2026-04-20T12:00:00Z"
+                    publishedAt: null
+                    location:
+                      city: "Berlin"
+                      postalCode: "10115"
+                      serviceRadiusKm: 15
+                    media: []
+
+        '400':
+          description: Invalid request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Request body validation failed"
+                    instance: "/v1/listings"
+                    errors:
+                      - field: "title"
+                        message: "must not be blank"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to create listings.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to create listings"
+                    instance: "/v1/listings"
+        '422':
+          description: Business validation failed, including addresses that cannot be geocoded.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                businessValidation:
+                  value:
+                    type: "https://api.mira.example/problems/business-rule-violation"
+                    title: "Unprocessable Entity"
+                    status: 422
+                    detail: "Business validation failed"
+                    instance: "/v1/listings"
+                    errors:
+                      - field: "tagIds"
+                        message: "one or more selected tags are not available for listing creation"
+                      - field: "location"
+                        message: "the provided address could not be geocoded"
+        '503':
+          $ref: '#/components/responses/GeocodingUnavailableError'
+
+  /v1/listings/{listingId}:
+    parameters:
+      - $ref: '#/components/parameters/ListingIdParam'
+    get:
+      summary: Get listing details
+      description: Returns a publicly visible listing by its identifier. A listing is visible in public endpoints only when publicationStatus is ACTIVE and moderationStatus is VISIBLE. Listings in other combinations are returned as not found.
+      tags:
+        - Listings (Public)
+      responses:
+        '200':
+          description: Listing retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicListingDetails'
+              examples:
+                default:
+                  summary: Example listing details
+                  value:
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
+                    title: "Laptop setup and software installation"
+                    description: "I help with setting up laptops, installing software, and solving basic PC issues."
+                    price: 25.0
+                    publicationStatus: "ACTIVE"
+                    author:
+                      name: "Anna"
+                      surname: "Schmidt"
+                    createdAt: "2026-04-20T12:00:00Z"
+                    updatedAt: "2026-04-20T13:00:00Z"
+                    publishedAt: "2026-04-20T13:00:00Z"
+                    location:
+                      city: "Berlin"
+                      postalCode: "10115"
+                      serviceRadiusKm: 15
+                    media:
+                      - mediaId: "11111111-2222-3333-4444-555555555555"
+                        url: "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+                        altText: "Open laptop on a wooden desk"
+                        mimeType: "image/jpeg"
+                        size: 248576
+                        width: 1280
+                        height: 720
+                        createdAt: "2026-04-20T16:10:00Z"
+        '404':
+          description: Listing not found or not publicly visible.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Listing with the given identifier was not found"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+
+    patch:
+      summary: Update listing
+      description: Partially updates mutable fields of a listing owned by the authenticated user. Only the fields provided in the request body are changed. If the location is changed, it is synchronously validated and geocoded before the listing is updated.
+      tags:
+        - Listings (Author)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateListingRequest'
+            examples:
+              default:
+                summary: Example listing update request
+                value:
+                  title: "Laptop setup, software installation, and troubleshooting"
+                  price: 30.0
+                  location:
+                    street: "Hauptstraße"
+                    houseNumber: "10"
+                    city: "Berlin"
+                    postalCode: "10115"
+                    serviceRadiusKm: 20
+      responses:
+        '200':
+          description: Listing updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingDetails'
+              examples:
+                default:
+                  summary: Example updated listing
+                  value:
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
+                    title: "Laptop setup, software installation, and troubleshooting"
+                    description: "I help with setting up laptops, installing software, and solving basic PC issues."
+                    price: 30.0
+                    publicationStatus: "DRAFT"
+                    moderationStatus: "VISIBLE"
+                    author:
+                      name: "Anna"
+                      surname: "Schmidt"
+                    createdAt: "2026-04-20T12:00:00Z"
+                    updatedAt: "2026-04-20T14:00:00Z"
+                    publishedAt: null
+                    location:
+                      city: "Berlin"
+                      postalCode: "10115"
+                      serviceRadiusKm: 20
+                    media: []
+        '400':
+          description: Invalid request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Request body validation failed"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    errors:
+                      - field: "price"
+                        message: "must be greater than or equal to 0"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to update this listing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to update this listing"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+        '404':
+          description: Listing not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Listing with the given identifier was not found"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+        '409':
+          description: Conflict with the current state of the target resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                conflict:
+                  value:
+                    type: "https://api.mira.example/problems/resource-conflict"
+                    title: "Conflict"
+                    status: 409
+                    detail: "Paused or deleted listings cannot be updated"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+        '422':
+          description: Business validation failed, including addresses that cannot be geocoded.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                businessValidation:
+                  value:
+                    type: "https://api.mira.example/problems/business-rule-violation"
+                    title: "Unprocessable Entity"
+                    status: 422
+                    detail: "Business validation failed"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    errors:
+                      - field: "location"
+                        message: "the provided address could not be geocoded"
+        '503':
+          $ref: '#/components/responses/GeocodingUnavailableError'
+
+    delete:
+      summary: Delete listing
+      description: Soft-deletes a listing owned by the authenticated user. Deleted listings are no longer accessible through public endpoints.
+      tags:
+        - Listings (Author)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ListingIdParam'
+      responses:
+        '204':
+          description: Listing deleted successfully.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to delete this listing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to delete this listing"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+        '404':
+          description: Listing not found or already deleted.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Listing with the given identifier was not found or has already been deleted"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+        '409':
+          description: Conflict with the current state of the target resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                activeBookings:
+                  value:
+                    type: "https://api.mira.example/problems/resource-conflict"
+                    title: "Conflict"
+                    status: 409
+                    detail: "Listings with active bookings cannot be deleted"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+
+  /v1/users/{userId}/public-profile/listings:
+    parameters:
+      - $ref: '#/components/parameters/UserIdParam'
+    get:
+      summary: List public listings from user's public profile
+      description: Returns a paginated list of publicly visible listings owned by the specified user. A listing is visible in public endpoints only when publicationStatus is ACTIVE and moderationStatus is VISIBLE.
+      tags:
+        - Listings (Public)
+      parameters:
+        - name: tagIds
+          in: query
+          required: false
+          description: Filter listings by one or more predefined service tag UUIDs.
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+        - name: city
+          in: query
+          required: false
+          description: Filter listings by city.
+          schema:
+            type: string
+        - name: minPrice
+          in: query
+          required: false
+          description: Minimum price, inclusive.
+          schema:
+            type: number
+            format: double
+            minimum: 0
+        - name: maxPrice
+          in: query
+          required: false
+          description: Maximum price, inclusive.
+          schema:
+            type: number
+            format: double
+            minimum: 0
+        - name: page
+          in: query
+          required: false
+          description: Zero-based page index.
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          description: Number of items per page.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: User public profile listings retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicListingCollectionResponse'
+              examples:
+                default:
+                  summary: Example public profile listings
+                  value:
+                    items:
+                      - listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                        tags:
+                          - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                            name: "Laptop support"
+                            isBarrierefrei: false
+                            isActive: true
+                        title: "Laptop setup and software installation"
+                        price: 25.0
+                        author:
+                          name: "Anna"
+                          surname: "Schmidt"
+                        publishedAt: "2026-04-20T13:00:00Z"
+                        location:
+                          city: "Berlin"
+                          postalCode: "10115"
+                          serviceRadiusKm: 15
+                        primaryMedia:
+                          mediaId: "11111111-2222-3333-4444-555555555555"
+                          url: "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+                          altText: "Open laptop on a wooden desk"
+                    page:
+                      page: 0
+                      size: 20
+                      totalElements: 1
+                      totalPages: 1
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidPagination:
+                  value:
+                    type: "https://api.mira.example/problems/invalid-query-parameter"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Query parameter validation failed"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/public-profile/listings"
+                    errors:
+                      - field: "size"
+                        message: "must be less than or equal to 100"
+        '404':
+          description: User public profile not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "User public profile with the given identifier was not found"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/public-profile/listings"
+
+  /v1/users/{userId}/public-profile/listings/{listingId}:
+    parameters:
+      - $ref: '#/components/parameters/UserIdParam'
+      - $ref: '#/components/parameters/ListingIdParam'
+    get:
+      summary: Get public listing from user's public profile
+      description: Returns a publicly visible listing owned by the specified user. A listing is visible in public endpoints only when publicationStatus is ACTIVE and moderationStatus is VISIBLE. Listings that do not belong to the user or are not publicly visible are returned as not found.
+      tags:
+        - Listings (Public)
+      responses:
+        '200':
+          description: User public profile listing retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicListingDetails'
+              examples:
+                default:
+                  summary: Example public profile listing details
+                  value:
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
+                    title: "Laptop setup and software installation"
+                    description: "I help with setting up laptops, installing software, and solving basic PC issues."
+                    price: 25.0
+                    publicationStatus: "ACTIVE"
+                    author:
+                      name: "Anna"
+                      surname: "Schmidt"
+                    createdAt: "2026-04-20T12:00:00Z"
+                    updatedAt: "2026-04-20T13:00:00Z"
+                    publishedAt: "2026-04-20T13:00:00Z"
+                    location:
+                      city: "Berlin"
+                      postalCode: "10115"
+                      serviceRadiusKm: 15
+                    media:
+                      - mediaId: "11111111-2222-3333-4444-555555555555"
+                        url: "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+                        altText: "Open laptop on a wooden desk"
+                        mimeType: "image/jpeg"
+                        size: 248576
+                        width: 1280
+                        height: 720
+                        createdAt: "2026-04-20T16:10:00Z"
+        '404':
+          description: User public profile or listing not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "User public profile or listing with the given identifier was not found"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/public-profile/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+
+  /v1/users/{userId}/listings:
+    parameters:
+      - $ref: '#/components/parameters/UserIdParam'
+    get:
+      summary: List user's listings
+      description: Returns a paginated list of listings owned by the specified user, including draft, active, paused, and deleted listings. This endpoint is accessible only when userId matches the authenticated user.
+      tags:
+        - Listings (Author)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: publicationStatus
+          in: query
+          required: false
+          description: Filter listings by publication status.
+          schema:
+            $ref: '#/components/schemas/PublicationStatus'
+        - name: tagIds
+          in: query
+          required: false
+          description: Filter listings by one or more predefined service tag UUIDs.
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+        - name: page
+          in: query
+          required: false
+          description: Zero-based page index.
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          description: Number of items per page.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Listings retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MyListingCollectionResponse'
+              examples:
+                default:
+                  summary: Example list of my listings
+                  value:
+                    items:
+                      - listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                        tags:
+                          - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                            name: "Laptop support"
+                            isBarrierefrei: false
+                            isActive: true
+                        title: "Laptop setup and software installation"
+                        description: "I help with setting up laptops, installing software, and solving basic PC issues."
+                        price: 25.0
+                        publicationStatus: "DRAFT"
+                        moderationStatus: "VISIBLE"
+                        author:
+                          name: "Anna"
+                          surname: "Schmidt"
+                        publishedAt: null
+                        location:
+                          city: "Berlin"
+                          postalCode: "10115"
+                          serviceRadiusKm: 15
+                        primaryMedia:
+                          mediaId: "11111111-2222-3333-4444-555555555555"
+                          url: "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+                          altText: "Open laptop on a wooden desk"
+                    page:
+                      page: 0
+                      size: 20
+                      totalElements: 1
+                      totalPages: 1
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidPagination:
+                  value:
+                    type: "https://api.mira.example/problems/invalid-query-parameter"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Query parameter validation failed"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/listings"
+                    errors:
+                      - field: "size"
+                        message: "must be less than or equal to 100"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/users/{userId}/listings/{listingId}:
+    parameters:
+      - $ref: '#/components/parameters/UserIdParam'
+      - $ref: '#/components/parameters/ListingIdParam'
+    get:
+      summary: Get user's listing details
+      description: Returns the details of a listing owned by the specified user, including draft, paused, and deleted listings, as well as listings hidden from public endpoints by moderation. This endpoint is accessible only when userId matches the authenticated user. If the listing does not belong to the specified authenticated user, it is returned as not found.
+      tags:
+        - Listings (Author)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Listing retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingDetails'
+              examples:
+                default:
+                  summary: Example my listing details
+                  value:
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
+                    title: "Laptop setup and software installation"
+                    description: "I help with setting up laptops, installing software, and solving basic PC issues."
+                    price: 25.0
+                    publicationStatus: "PAUSED"
+                    moderationStatus: "VISIBLE"
+                    author:
+                      name: "Anna"
+                      surname: "Schmidt"
+                    createdAt: "2026-04-20T12:00:00Z"
+                    updatedAt: "2026-04-20T17:00:00Z"
+                    publishedAt: "2026-04-20T16:00:00Z"
+                    location:
+                      city: "Berlin"
+                      postalCode: "10115"
+                      serviceRadiusKm: 15
+                    media:
+                      - mediaId: "11111111-2222-3333-4444-555555555555"
+                        url: "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+                        altText: "Open laptop on a wooden desk"
+                        mimeType: "image/jpeg"
+                        size: 248576
+                        width: 1280
+                        height: 720
+                        createdAt: "2026-04-20T16:10:00Z"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: Listing not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Listing with the given identifier was not found"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+
+  /v1/listings/{listingId}/publish:
+    parameters:
+      - $ref: '#/components/parameters/ListingIdParam'
+    post:
+      summary: Publish listing
+      description: Publishes a draft listing owned by the authenticated user. The listing must contain a title, description, price, and location. The provided location is synchronously validated and geocoded before the listing is published.
+      tags:
+        - Listings (Author)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Listing published successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingDetails'
+              examples:
+                default:
+                  summary: Example published listing
+                  value:
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
+                    title: "Laptop setup and software installation"
+                    description: "I help with setting up laptops, installing software, and solving basic PC issues."
+                    price: 25.0
+                    publicationStatus: "ACTIVE"
+                    moderationStatus: "VISIBLE"
+                    author:
+                      name: "Anna"
+                      surname: "Schmidt"
+                    createdAt: "2026-04-20T12:00:00Z"
+                    updatedAt: "2026-04-20T16:00:00Z"
+                    publishedAt: "2026-04-20T16:00:00Z"
+                    location:
+                      city: "Berlin"
+                      postalCode: "10115"
+                      serviceRadiusKm: 15
+                    media:
+                      - mediaId: "11111111-2222-3333-4444-555555555555"
+                        url: "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+                        altText: "Open laptop on a wooden desk"
+                        mimeType: "image/jpeg"
+                        size: 248576
+                        width: 1280
+                        height: 720
+                        createdAt: "2026-04-20T16:10:00Z"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to publish this listing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to publish this listing"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/publish"
+        '404':
+          description: Listing not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Listing with the given identifier was not found"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/publish"
+        '409':
+          description: Conflict with the current state of the target resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidState:
+                  value:
+                    type: "https://api.mira.example/problems/resource-conflict"
+                    title: "Conflict"
+                    status: 409
+                    detail: "Only draft listings can be published"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/publish"
+        '422':
+          description: The listing is not ready to be published, including addresses that cannot be geocoded.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notPublishable:
+                  value:
+                    type: "https://api.mira.example/problems/business-rule-violation"
+                    title: "Unprocessable Entity"
+                    status: 422
+                    detail: "Listing is not ready to be published"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/publish"
+                    errors:
+                      - field: "title"
+                        message: "must not be blank"
+                      - field: "location"
+                        message: "the provided address could not be geocoded"
+        '503':
+          $ref: '#/components/responses/GeocodingUnavailableError'
+
+  /v1/listings/{listingId}/pause:
+    parameters:
+      - $ref: '#/components/parameters/ListingIdParam'
+    post:
+      summary: Pause listing
+      description: Pauses an active listing owned by the authenticated user.
+      tags:
+        - Listings (Author)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Listing paused successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingDetails'
+              examples:
+                default:
+                  summary: Example paused listing
+                  value:
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
+                    title: "Laptop setup and software installation"
+                    description: "I help with setting up laptops, installing software, and solving basic PC issues."
+                    price: 25.0
+                    publicationStatus: "PAUSED"
+                    moderationStatus: "VISIBLE"
+                    author:
+                      name: "Anna"
+                      surname: "Schmidt"
+                    createdAt: "2026-04-20T12:00:00Z"
+                    updatedAt: "2026-04-20T17:00:00Z"
+                    publishedAt: "2026-04-20T16:00:00Z"
+                    location:
+                      city: "Berlin"
+                      postalCode: "10115"
+                      serviceRadiusKm: 15
+                    media:
+                      - mediaId: "11111111-2222-3333-4444-555555555555"
+                        url: "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+                        altText: "Open laptop on a wooden desk"
+                        mimeType: "image/jpeg"
+                        size: 248576
+                        width: 1280
+                        height: 720
+                        createdAt: "2026-04-20T16:10:00Z"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to pause this listing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to pause this listing"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/pause"
+        '404':
+          description: Listing not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Listing with the given identifier was not found"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/pause"
+        '409':
+          description: Conflict with the current state of the target resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidState:
+                  value:
+                    type: "https://api.mira.example/problems/resource-conflict"
+                    title: "Conflict"
+                    status: 409
+                    detail: "Only active listings can be paused"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/pause"
+
+  /v1/listings/{listingId}/resume:
+    parameters:
+      - $ref: '#/components/parameters/ListingIdParam'
+    post:
+      summary: Resume listing
+      description: Resumes a paused listing owned by the authenticated user.
+      tags:
+        - Listings (Author)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Listing resumed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingDetails'
+              examples:
+                default:
+                  summary: Example resumed listing
+                  value:
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
+                    title: "Laptop setup and software installation"
+                    description: "I help with setting up laptops, installing software, and solving basic PC issues."
+                    price: 25.0
+                    publicationStatus: "ACTIVE"
+                    moderationStatus: "VISIBLE"
+                    author:
+                      name: "Anna"
+                      surname: "Schmidt"
+                    createdAt: "2026-04-20T12:00:00Z"
+                    updatedAt: "2026-04-20T18:00:00Z"
+                    publishedAt: "2026-04-20T16:00:00Z"
+                    location:
+                      city: "Berlin"
+                      postalCode: "10115"
+                      serviceRadiusKm: 15
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to resume this listing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to resume this listing"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/resume"
+        '404':
+          description: Listing not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Listing with the given identifier was not found"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/resume"
+        '409':
+          description: Conflict with the current state of the target resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidState:
+                  value:
+                    type: "https://api.mira.example/problems/resource-conflict"
+                    title: "Conflict"
+                    status: 409
+                    detail: "Only paused listings can be resumed"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/resume"
+
+  /v1/admin/listings/reported:
+    get:
+      summary: List reported listings
+      description: Returns a paginated list of listings that currently have active reports and require admin review.
+      tags:
+        - Listings (Reports)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: Zero-based page index.
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: size
+          in: query
+          required: false
+          description: Number of items per page.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: Reported listings retrieved successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReportedListingCollectionResponse'
+              examples:
+                default:
+                  summary: Example reported listings
+                  value:
+                    items:
+                      - listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                        tags:
+                          - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                            name: "Laptop support"
+                            isBarrierefrei: false
+                            isActive: true
+                        title: "Laptop setup and software installation"
+                        description: "I help with setting up laptops, installing software, and solving basic PC issues."
+                        price: 25.0
+                        publicationStatus: "ACTIVE"
+                        moderationStatus: "REPORTED"
+                        author:
+                          name: "Anna"
+                          surname: "Schmidt"
+                        publishedAt: "2026-04-20T16:00:00Z"
+                        location:
+                          city: "Berlin"
+                          postalCode: "10115"
+                          serviceRadiusKm: 15
+                        primaryMedia:
+                          mediaId: "11111111-2222-3333-4444-555555555555"
+                          url: "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+                          altText: "Open laptop on a wooden desk"
+                        activeReportCount: 2
+                    page:
+                      page: 0
+                      size: 20
+                      totalElements: 1
+                      totalPages: 1
+        '400':
+          description: Invalid query parameters.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidPagination:
+                  value:
+                    type: "https://api.mira.example/problems/invalid-query-parameter"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Query parameter validation failed"
+                    instance: "/v1/admin/listings/reported"
+                    errors:
+                      - field: "size"
+                        message: "must be less than or equal to 100"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to view reported listings.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to view reported listings"
+                    instance: "/v1/admin/listings/reported"
+
+  /v1/listings/{listingId}/report:
+    parameters:
+      - $ref: '#/components/parameters/ListingIdParam'
+    post:
+      summary: Report listing
+      description: Creates a report for a listing. Reporting a listing does not change its publication status. A user can have at most one active report for the same listing at a time. Authors cannot report their own listings.
+      tags:
+        - Listings (Reports)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateListingReportRequest'
+            examples:
+              default:
+                summary: Example report request
+                value:
+                  message: "This listing contains misleading information and appears to violate platform rules."
+      responses:
+        '201':
+          description: Report created successfully.
+          headers:
+            Location:
+              description: URI of the created report resource.
+              required: true
+              schema:
+                type: string
+                examples:
+                  - "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/report/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingReportResponse'
+              examples:
+                default:
+                  summary: Example created report
+                  value:
+                    reportId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    message: "This listing contains misleading information and appears to violate platform rules."
+                    createdAt: "2026-04-21T10:00:00Z"
+        '400':
+          description: Invalid request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Request body validation failed"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/report"
+                    errors:
+                      - field: "message"
+                        message: "must contain at least 10 characters"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to report this listing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to report this listing"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/report"
+        '404':
+          description: Listing not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Listing with the given identifier was not found"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/report"
+        '409':
+          description: Conflict with the current state of the target resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                duplicateReport:
+                  value:
+                    type: "https://api.mira.example/problems/resource-conflict"
+                    title: "Conflict"
+                    status: 409
+                    detail: "An active report from this user already exists for this listing"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/report"
+
+  /v1/admin/listings/{listingId}/block:
+    parameters:
+      - $ref: '#/components/parameters/ListingIdParam'
+    post:
+      summary: Block listing
+      description: Hides a listing from public endpoints after confirming an active report. The listing remains visible to its author through author endpoints. This action changes moderationStatus to BLOCKED.
+      tags:
+        - Listings (Reports)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModerateListingRequest'
+            examples:
+              default:
+                summary: Example block request
+                value:
+                  comment: "The report is valid. The listing violates platform rules and has been hidden from public view."
+      responses:
+        '200':
+          description: Report approved successfully and listing hidden from public endpoints.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingDetails'
+              examples:
+                default:
+                  summary: Example moderated listing after approved report
+                  value:
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
+                    title: "Laptop setup and software installation"
+                    description: "I help with setting up laptops, installing software, and solving basic PC issues."
+                    price: 25.0
+                    publicationStatus: "ACTIVE"
+                    moderationStatus: "BLOCKED"
+                    author:
+                      name: "Anna"
+                      surname: "Schmidt"
+                    createdAt: "2026-04-20T12:00:00Z"
+                    updatedAt: "2026-04-21T10:10:00Z"
+                    publishedAt: "2026-04-20T16:00:00Z"
+                    location:
+                      city: "Berlin"
+                      postalCode: "10115"
+                      serviceRadiusKm: 15
+                    media:
+                      - mediaId: "11111111-2222-3333-4444-555555555555"
+                        url: "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+                        altText: "Open laptop on a wooden desk"
+                        mimeType: "image/jpeg"
+                        size: 248576
+                        width: 1280
+                        height: 720
+                        createdAt: "2026-04-20T16:10:00Z"
+        '400':
+          description: Invalid request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Request body validation failed"
+                    instance: "/v1/admin/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/block"
+                    errors:
+                      - field: "comment"
+                        message: "must contain at least 5 characters"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to moderate this listing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to moderate this listing"
+                    instance: "/v1/admin/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/block"
+        '404':
+          description: Listing not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Listing with the given identifier was not found"
+                    instance: "/v1/admin/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/block"
+        '409':
+          description: Conflict with the current state of the target resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                noActiveReport:
+                  value:
+                    type: "https://api.mira.example/problems/resource-conflict"
+                    title: "Conflict"
+                    status: 409
+                    detail: "There is no active report to confirm for this listing"
+                    instance: "/v1/admin/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/block"
+        '422':
+          description: Business validation failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidComment:
+                  value:
+                    type: "https://api.mira.example/problems/business-rule-violation"
+                    title: "Unprocessable Entity"
+                    status: 422
+                    detail: "Business validation failed"
+                    instance: "/v1/admin/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/block"
+                    errors:
+                      - field: "comment"
+                        message: "comment must contain at least 5 characters"
+
+  /v1/admin/listings/{listingId}/dismiss-report:
+    parameters:
+      - $ref: '#/components/parameters/ListingIdParam'
+    post:
+      summary: Dismiss listing report
+      description: Dismisses an active report for a listing. The report is closed, the listing status remains unchanged, and moderationStatus returns to VISIBLE.
+      tags:
+        - Listings (Reports)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModerateListingRequest'
+            examples:
+              default:
+                summary: Example dismiss report request
+                value:
+                  comment: "The report could not be confirmed. The listing remains available."
+      responses:
+        '200':
+          description: Report rejected successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingDetails'
+              examples:
+                default:
+                  summary: Example listing after rejected report
+                  value:
+                    listingId: "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+                    tags:
+                      - tagId: "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+                        name: "Laptop support"
+                        isBarrierefrei: false
+                        isActive: true
+                    title: "Laptop setup and software installation"
+                    description: "I help with setting up laptops, installing software, and solving basic PC issues."
+                    price: 25.0
+                    publicationStatus: "ACTIVE"
+                    moderationStatus: "VISIBLE"
+                    author:
+                      name: "Anna"
+                      surname: "Schmidt"
+                    createdAt: "2026-04-20T12:00:00Z"
+                    updatedAt: "2026-04-21T10:15:00Z"
+                    publishedAt: "2026-04-20T16:00:00Z"
+                    location:
+                      city: "Berlin"
+                      postalCode: "10115"
+                      serviceRadiusKm: 15
+                    media:
+                      - mediaId: "11111111-2222-3333-4444-555555555555"
+                        url: "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+                        altText: "Open laptop on a wooden desk"
+                        mimeType: "image/jpeg"
+                        size: 248576
+                        width: 1280
+                        height: 720
+                        createdAt: "2026-04-20T16:10:00Z"
+        '400':
+          description: Invalid request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Request body validation failed"
+                    instance: "/v1/admin/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/dismiss-report"
+                    errors:
+                      - field: "comment"
+                        message: "must contain at least 5 characters"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to moderate this listing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to moderate this listing"
+                    instance: "/v1/admin/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/dismiss-report"
+        '404':
+          description: Listing not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Listing with the given identifier was not found"
+                    instance: "/v1/admin/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/dismiss-report"
+        '409':
+          description: Conflict with the current state of the target resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                noActiveReport:
+                  value:
+                    type: "https://api.mira.example/problems/resource-conflict"
+                    title: "Conflict"
+                    status: 409
+                    detail: "There is no active report to dismiss for this listing"
+                    instance: "/v1/admin/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/dismiss-report"
+        '422':
+          description: Business validation failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidComment:
+                  value:
+                    type: "https://api.mira.example/problems/business-rule-violation"
+                    title: "Unprocessable Entity"
+                    status: 422
+                    detail: "Business validation failed"
+                    instance: "/v1/admin/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/dismiss-report"
+                    errors:
+                      - field: "comment"
+                        message: "comment must contain at least 5 characters"
+
+  /v1/listings/{listingId}/media:
+    parameters:
+      - $ref: '#/components/parameters/ListingIdParam'
+    post:
+      summary: Upload listing media
+      description: "Uploads one or more media files to a listing owned by the authenticated user. The request may partially succeed: valid files are uploaded, invalid files are reported in the failed collection. Upload is allowed for draft, active, and paused listings, but not for deleted listings. A listing can have at most 10 media items in total; if the upload would exceed the limit, only the allowed files are uploaded and the remaining files are returned in the failed collection."
+      tags:
+        - Listings (Media)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadListingMediaRequest'
+      responses:
+        '200':
+          description: Media upload processed successfully, possibly with partial failures.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkUploadListingMediaResponse'
+              examples:
+                partialSuccess:
+                  summary: Example partial upload result
+                  value:
+                    uploaded:
+                      - mediaId: "11111111-2222-3333-4444-555555555555"
+                        url: "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+                        altText: "Open laptop on a wooden desk"
+                        mimeType: "image/jpeg"
+                        size: 248576
+                        width: 1280
+                        height: 720
+                        createdAt: "2026-04-20T16:10:00Z"
+                    failed:
+                      - fileName: "too-large.png"
+                        errorCode: "FILE_TOO_LARGE"
+                        message: "File exceeds the maximum allowed size"
+        '400':
+          description: Invalid multipart request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Multipart request validation failed"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/media"
+                    errors:
+                      - field: "files"
+                        message: "must contain at least one file"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to upload media to this listing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to upload media to this listing"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/media"
+        '404':
+          description: Listing not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Listing with the given identifier was not found"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/media"
+        '409':
+          description: Conflict with the current state of the target resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidState:
+                  value:
+                    type: "https://api.mira.example/problems/resource-conflict"
+                    title: "Conflict"
+                    status: 409
+                    detail: "Media cannot be uploaded to deleted listings"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/media"
+        '422':
+          description: Business validation failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                uploadRejected:
+                  value:
+                    type: "https://api.mira.example/problems/business-rule-violation"
+                    title: "Unprocessable Entity"
+                    status: 422
+                    detail: "None of the provided files could be accepted"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/media"
+                    errors:
+                      - field: "files"
+                        message: "all files have unsupported media types"
+
+  /v1/listings/{listingId}/media/{mediaId}:
+    parameters:
+      - $ref: '#/components/parameters/ListingIdParam'
+      - $ref: '#/components/parameters/MediaIdParam'
+    patch:
+      summary: Update listing media metadata
+      description: Partially updates media metadata of a listing owned by the authenticated user. Only altText can be changed.
+      tags:
+        - Listings (Media)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateListingMediaRequest'
+            examples:
+              default:
+                summary: Example media update request
+                value:
+                  altText: "Laptop repair tools on a desk"
+      responses:
+        '200':
+          description: Listing media updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListingMediaItem'
+              examples:
+                default:
+                  summary: Example updated media item
+                  value:
+                    mediaId: "11111111-2222-3333-4444-555555555555"
+                    url: "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+                    altText: "Laptop repair tools on a desk"
+                    mimeType: "image/jpeg"
+                    size: 248576
+                    width: 1280
+                    height: 720
+                    createdAt: "2026-04-20T16:10:00Z"
+        '400':
+          description: Invalid request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Request body validation failed"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/media/11111111-2222-3333-4444-555555555555"
+                    errors:
+                      - field: "altText"
+                        message: "must not be blank"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to update media of this listing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to update media of this listing"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/media/11111111-2222-3333-4444-555555555555"
+        '404':
+          description: Listing or media not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Listing or media with the given identifier was not found"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/media/11111111-2222-3333-4444-555555555555"
+        '409':
+          description: Conflict with the current state of the target resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidState:
+                  value:
+                    type: "https://api.mira.example/problems/resource-conflict"
+                    title: "Conflict"
+                    status: 409
+                    detail: "Media of deleted listings cannot be updated"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/media/11111111-2222-3333-4444-555555555555"
+        '422':
+          description: Business validation failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidMetadata:
+                  value:
+                    type: "https://api.mira.example/problems/business-rule-violation"
+                    title: "Unprocessable Entity"
+                    status: 422
+                    detail: "Business validation failed"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/media/11111111-2222-3333-4444-555555555555"
+                    errors:
+                      - field: "altText"
+                        message: "alt text contains unsupported content"
+
+    delete:
+      summary: Delete listing media
+      description: Deletes a media item from a listing owned by the authenticated user.
+      tags:
+        - Listings (Media)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ListingIdParam'
+        - $ref: '#/components/parameters/MediaIdParam'
+      responses:
+        '204':
+          description: Listing media deleted successfully.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Authenticated user is not allowed to delete media of this listing.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                forbidden:
+                  value:
+                    type: "https://api.mira.example/problems/insufficient-permissions"
+                    title: "Forbidden"
+                    status: 403
+                    detail: "Authenticated user is not allowed to delete media of this listing"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/media/11111111-2222-3333-4444-555555555555"
+        '404':
+          description: Listing or media not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                notFound:
+                  value:
+                    type: "https://api.mira.example/problems/resource-not-found"
+                    title: "Not Found"
+                    status: 404
+                    detail: "Listing or media with the given identifier was not found"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/media/11111111-2222-3333-4444-555555555555"
+        '409':
+          description: Conflict with the current state of the target resource.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidState:
+                  value:
+                    type: "https://api.mira.example/problems/resource-conflict"
+                    title: "Conflict"
+                    status: 409
+                    detail: "Media of deleted listings cannot be deleted"
+                    instance: "/v1/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/media/11111111-2222-3333-4444-555555555555"
+
+  /v1/users/{userId}/profile-picture:
+    parameters:
+      - $ref: '#/components/parameters/UserIdParam'
+    put:
+      summary: Replace user's profile picture
+      description: Uploads or replaces the specified user's profile picture. This endpoint is accessible only when userId matches the authenticated user.
+      tags:
+        - Users (Profile Picture)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadProfilePictureRequest'
+      responses:
+        '200':
+          description: Profile picture replaced successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfilePicture'
+              examples:
+                default:
+                  summary: Example replaced profile picture
+                  value:
+                    mediaId: "22222222-3333-4444-5555-666666666666"
+                    url: "https://cdn.mira.example/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile-picture.jpg"
+                    mimeType: "image/jpeg"
+                    size: 182144
+                    width: 512
+                    height: 512
+                    createdAt: "2026-04-20T09:30:00Z"
+        '400':
+          description: Invalid multipart request payload.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidRequest:
+                  value:
+                    type: "https://api.mira.example/problems/validation-error"
+                    title: "Bad Request"
+                    status: 400
+                    detail: "Multipart request validation failed"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile-picture"
+                    errors:
+                      - field: "file"
+                        message: "must contain a file"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '413':
+          description: Uploaded file exceeds the maximum allowed size.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                fileTooLarge:
+                  value:
+                    type: "https://api.mira.example/problems/payload-too-large"
+                    title: "Payload Too Large"
+                    status: 413
+                    detail: "Uploaded profile picture exceeds the maximum allowed size"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile-picture"
+        '415':
+          description: Uploaded file type is not supported.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                unsupportedType:
+                  value:
+                    type: "https://api.mira.example/problems/unsupported-media-type"
+                    title: "Unsupported Media Type"
+                    status: 415
+                    detail: "Uploaded profile picture type is not supported"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile-picture"
+        '422':
+          description: Business validation failed.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+              examples:
+                invalidImageDimensions:
+                  value:
+                    type: "https://api.mira.example/problems/business-rule-violation"
+                    title: "Unprocessable Entity"
+                    status: 422
+                    detail: "Business validation failed"
+                    instance: "/v1/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile-picture"
+                    errors:
+                      - field: "file"
+                        message: "image dimensions are below the minimum allowed size"
+
+    delete:
+      summary: Delete user's profile picture
+      description: Deletes the specified user's custom profile picture and restores the default profile picture. This endpoint is accessible only when userId matches the authenticated user.
+      tags:
+        - Users (Profile Picture)
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Profile picture deleted successfully.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    UserIdParam:
+      name: userId
+      in: path
+      required: true
+      description: User UUID.
+      schema:
+        type: string
+        format: uuid
+    ListingIdParam:
+      name: listingId
+      in: path
+      required: true
+      description: Listing UUID.
+      schema:
+        type: string
+        format: uuid
+    MediaIdParam:
+      name: mediaId
+      in: path
+      required: true
+      description: Media UUID.
+      schema:
+        type: string
+        format: uuid
+  responses:
+    UnauthorizedError:
+      description: Authentication is required.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            unauthorized:
+              value:
+                type: "https://api.mira.example/problems/authentication-required"
+                title: "Unauthorized"
+                status: 401
+                detail: "Authentication is required"
+                instance: "/v1/listings/{listingId}"
+    GeocodingUnavailableError:
+      description: Geocoding service is temporarily unavailable.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+          examples:
+            geocodingUnavailable:
+              value:
+                type: "https://api.mira.example/problems/service-unavailable"
+                title: "Service Unavailable"
+                status: 503
+                detail: "Geocoding service is temporarily unavailable"
+                instance: "/v1/listings/{listingId}"
+  schemas:
+    ServiceTag:
+      type: object
+      required:
+        - tagId
+        - name
+        - isBarrierefrei
+        - isActive
+      properties:
+        tagId:
+          type: string
+          format: uuid
+          examples:
+            - "dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          examples:
+            - "Laptop support"
+        isBarrierefrei:
+          type: boolean
+          description: Indicates whether this tag belongs to the barrierefrei tag group.
+          examples:
+            - false
+        isActive:
+          type: boolean
+          description: Indicates whether this predefined tag can currently be selected for listings.
+          examples:
+            - true
+
+    ServiceTagCollectionResponse:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceTag'
+
+    CreateListingRequest:
+      type: object
+      required:
+        - tagIds
+        - title
+        - description
+        - price
+        - location
+      properties:
+        tagIds:
+          type: array
+          minItems: 1
+          maxItems: 10
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+          examples:
+            - ["dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"]
+        title:
+          type: string
+          minLength: 3
+          maxLength: 120
+          examples:
+            - "Laptop setup and software installation"
+        description:
+          type: string
+          minLength: 10
+          maxLength: 2000
+          examples:
+            - "I help with setting up laptops, installing software, and solving basic PC issues."
+        price:
+          type: number
+          format: double
+          minimum: 0
+          examples:
+            - 25.0
+        location:
+          $ref: '#/components/schemas/ListingLocationRequest'
+
+    UpdateListingRequest:
+      type: object
+      minProperties: 1
+      properties:
+        tagIds:
+          type: array
+          minItems: 1
+          maxItems: 10
+          uniqueItems: true
+          items:
+            type: string
+            format: uuid
+          examples:
+            - ["dcf4f0b6-a983-4d88-a4d3-d8d4bd6a7b12"]
+        title:
+          type: string
+          minLength: 3
+          maxLength: 120
+          examples:
+            - "Laptop setup, software installation, and troubleshooting"
+        description:
+          type: string
+          minLength: 10
+          maxLength: 2000
+          examples:
+            - "I help with setup, installation, troubleshooting, and performance tuning."
+        price:
+          type: number
+          format: double
+          minimum: 0
+          examples:
+            - 30.0
+        location:
+          $ref: '#/components/schemas/ListingLocationRequest'
+
+    CreateListingReportRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          minLength: 10
+          maxLength: 2000
+          examples:
+            - "This listing contains misleading information and appears to violate platform rules."
+
+    ModerateListingRequest:
+      type: object
+      required:
+        - comment
+      properties:
+        comment:
+          type: string
+          minLength: 5
+          maxLength: 2000
+          examples:
+            - "The report is valid. The listing violates platform rules and has been hidden from public view."
+
+    ListingReportResponse:
+      type: object
+      required:
+        - reportId
+        - listingId
+        - message
+        - createdAt
+      properties:
+        reportId:
+          type: string
+          format: uuid
+          examples:
+            - "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+        listingId:
+          type: string
+          format: uuid
+          examples:
+            - "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+        message:
+          type: string
+          examples:
+            - "This listing contains misleading information and appears to violate platform rules."
+        createdAt:
+          type: string
+          format: date-time
+
+    UploadListingMediaRequest:
+      type: object
+      required:
+        - files
+      properties:
+        files:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            type: string
+            format: binary
+
+    UpdateListingMediaRequest:
+      type: object
+      minProperties: 1
+      properties:
+        altText:
+          type: string
+          minLength: 1
+          maxLength: 255
+          examples:
+            - "Laptop repair tools on a desk"
+
+    ListingMediaItem:
+      type: object
+      required:
+        - mediaId
+        - url
+        - mimeType
+        - size
+        - width
+        - height
+        - createdAt
+      properties:
+        mediaId:
+          type: string
+          format: uuid
+          examples:
+            - "11111111-2222-3333-4444-555555555555"
+        url:
+          type: string
+          format: uri
+          examples:
+            - "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+        altText:
+          type:
+            - string
+            - "null"
+          examples:
+            - "Open laptop on a wooden desk"
+        mimeType:
+          type: string
+          examples:
+            - "image/jpeg"
+        size:
+          type: integer
+          format: int64
+          minimum: 1
+          examples:
+            - 248576
+        width:
+          type: integer
+          minimum: 1
+          examples:
+            - 1280
+        height:
+          type: integer
+          minimum: 1
+          examples:
+            - 720
+        createdAt:
+          type: string
+          format: date-time
+
+    ListingMediaPreview:
+      type: object
+      required:
+        - mediaId
+        - url
+      properties:
+        mediaId:
+          type: string
+          format: uuid
+          examples:
+            - "11111111-2222-3333-4444-555555555555"
+        url:
+          type: string
+          format: uri
+          examples:
+            - "https://cdn.mira.example/listings/9c2de8a5-0e11-4fca-95fc-6852ac6f4b31/hero.jpg"
+        altText:
+          type:
+            - string
+            - "null"
+          examples:
+            - "Open laptop on a wooden desk"
+
+    UploadProfilePictureRequest:
+      type: object
+      required:
+        - file
+      properties:
+        file:
+          type: string
+          format: binary
+        altText:
+          type: string
+          minLength: 1
+          maxLength: 255
+          examples:
+            - "Portrait photo of Anna Schmidt"
+
+    ProfilePicture:
+      type: object
+      required:
+        - mediaId
+        - url
+        - mimeType
+        - size
+        - width
+        - height
+        - createdAt
+      properties:
+        mediaId:
+          type: string
+          format: uuid
+          examples:
+            - "22222222-3333-4444-5555-666666666666"
+        url:
+          type: string
+          format: uri
+          examples:
+            - "https://cdn.mira.example/users/3fa85f64-5717-4562-b3fc-2c963f66afa6/profile-picture.jpg"
+        altText:
+          type:
+            - string
+            - "null"
+          examples:
+            - "Portrait photo of Anna Schmidt"
+        mimeType:
+          type: string
+          examples:
+            - "image/jpeg"
+        size:
+          type: integer
+          format: int64
+          minimum: 1
+          examples:
+            - 182144
+        width:
+          type: integer
+          minimum: 1
+          examples:
+            - 512
+        height:
+          type: integer
+          minimum: 1
+          examples:
+            - 512
+        createdAt:
+          type: string
+          format: date-time
+
+    AdminReportedListingItem:
+      allOf:
+        - $ref: '#/components/schemas/MyListingSummary'
+        - type: object
+          required:
+            - activeReportCount
+          properties:
+            activeReportCount:
+              type: integer
+              minimum: 1
+              examples:
+                - 2
+
+    AdminReportedListingCollectionResponse:
+      type: object
+      required:
+        - items
+        - page
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminReportedListingItem'
+        page:
+          $ref: '#/components/schemas/PageMetadata'
+
+    BulkUploadListingMediaResponse:
+      type: object
+      required:
+        - uploaded
+        - failed
+      properties:
+        uploaded:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListingMediaItem'
+        failed:
+          type: array
+          items:
+            $ref: '#/components/schemas/BulkUploadListingMediaFailure'
+
+    BulkUploadListingMediaFailure:
+      type: object
+      required:
+        - fileName
+        - errorCode
+        - message
+      properties:
+        fileName:
+          type: string
+          examples:
+            - "too-large.png"
+        errorCode:
+          type: string
+          examples:
+            - "FILE_TOO_LARGE"
+        message:
+          type: string
+          examples:
+            - "File exceeds the maximum allowed size"
+
+    PublicListingSummary:
+      type: object
+      required:
+        - listingId
+        - tags
+        - title
+        - price
+        - author
+        - publishedAt
+        - location
+      properties:
+        listingId:
+          type: string
+          format: uuid
+          examples:
+            - "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceTag'
+        title:
+          type: string
+          examples:
+            - "Laptop setup and software installation"
+        price:
+          type: number
+          format: double
+          examples:
+            - 25.0
+        author:
+          $ref: '#/components/schemas/ListingAuthor'
+        publishedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        location:
+          $ref: '#/components/schemas/PublicListingLocation'
+        primaryMedia:
+          $ref: '#/components/schemas/ListingMediaPreview'
+
+    PublicListingDetails:
+      type: object
+      required:
+        - listingId
+        - tags
+        - title
+        - description
+        - price
+        - publicationStatus
+        - author
+        - publishedAt
+        - location
+        - createdAt
+        - updatedAt
+      properties:
+        listingId:
+          type: string
+          format: uuid
+          examples:
+            - "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceTag'
+        title:
+          type: string
+          examples:
+            - "Laptop setup and software installation"
+        description:
+          type: string
+          examples:
+            - "I help with setting up laptops, installing software, and solving basic PC issues."
+        price:
+          type: number
+          format: double
+          examples:
+            - 25.0
+        publicationStatus:
+          $ref: '#/components/schemas/PublicationStatus'
+        author:
+          $ref: '#/components/schemas/ListingAuthor'
+        publishedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        location:
+          $ref: '#/components/schemas/PublicListingLocation'
+        primaryMedia:
+          $ref: '#/components/schemas/ListingMediaPreview'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        media:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListingMediaItem'
+
+    MyListingSummary:
+      type: object
+      required:
+        - listingId
+        - tags
+        - title
+        - description
+        - price
+        - publicationStatus
+        - moderationStatus
+        - author
+        - publishedAt
+        - location
+      properties:
+        listingId:
+          type: string
+          format: uuid
+          examples:
+            - "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceTag'
+        title:
+          type: string
+          examples:
+            - "Laptop setup and software installation"
+        description:
+          type: string
+          examples:
+            - "I help with setting up laptops, installing software, and solving basic PC issues."
+        price:
+          type: number
+          format: double
+          examples:
+            - 25.0
+        publicationStatus:
+          $ref: '#/components/schemas/PublicationStatus'
+        moderationStatus:
+          $ref: '#/components/schemas/ModerationStatus'
+        author:
+          $ref: '#/components/schemas/ListingAuthor'
+        publishedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        location:
+          $ref: '#/components/schemas/PublicListingLocation'
+        primaryMedia:
+          $ref: '#/components/schemas/ListingMediaPreview'
+
+    ListingDetails:
+      type: object
+      required:
+        - listingId
+        - tags
+        - title
+        - description
+        - price
+        - publicationStatus
+        - moderationStatus
+        - author
+        - publishedAt
+        - location
+        - createdAt
+        - updatedAt
+      properties:
+        listingId:
+          type: string
+          format: uuid
+          examples:
+            - "9c2de8a5-0e11-4fca-95fc-6852ac6f4b31"
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceTag'
+        title:
+          type: string
+          examples:
+            - "Laptop setup and software installation"
+        description:
+          type: string
+          examples:
+            - "I help with setting up laptops, installing software, and solving basic PC issues."
+        price:
+          type: number
+          format: double
+          examples:
+            - 25.0
+        publicationStatus:
+          $ref: '#/components/schemas/PublicationStatus'
+        moderationStatus:
+          $ref: '#/components/schemas/ModerationStatus'
+        author:
+          $ref: '#/components/schemas/ListingAuthor'
+        publishedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        location:
+          $ref: '#/components/schemas/PublicListingLocation'
+        primaryMedia:
+          $ref: '#/components/schemas/ListingMediaPreview'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        media:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListingMediaItem'
+
+    ListingLocationRequest:
+      type: object
+      required:
+        - street
+        - houseNumber
+        - city
+        - postalCode
+        - serviceRadiusKm
+      properties:
+        street:
+          type: string
+          minLength: 1
+          maxLength: 120
+          examples:
+            - "Hauptstraße"
+        houseNumber:
+          type: string
+          minLength: 1
+          maxLength: 20
+          examples:
+            - "10"
+        city:
+          type: string
+          minLength: 1
+          maxLength: 120
+          examples:
+            - "Berlin"
+        postalCode:
+          type: string
+          pattern: '^\d{5}$'
+          description: German postal code as exactly five digits.
+          examples:
+            - "10115"
+        serviceRadiusKm:
+          type: integer
+          minimum: 1
+          examples:
+            - 15
+
+    PublicListingLocation:
+      type: object
+      required:
+        - city
+        - postalCode
+        - serviceRadiusKm
+      properties:
+        city:
+          type: string
+          minLength: 1
+          maxLength: 120
+          examples:
+            - "Berlin"
+        postalCode:
+          type: string
+          pattern: '^\d{5}$'
+          description: German postal code as exactly five digits.
+          examples:
+            - "10115"
+        serviceRadiusKm:
+          type: integer
+          minimum: 1
+          examples:
+            - 15
+
+    ListingAuthor:
+      type: object
+      required:
+        - name
+        - surname
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+          examples:
+            - "Anna"
+        surname:
+          type: string
+          minLength: 1
+          maxLength: 120
+          examples:
+            - "Schmidt"
+
+    PublicListingCollectionResponse:
+      type: object
+      required:
+        - items
+        - page
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicListingSummary'
+        page:
+          $ref: '#/components/schemas/PageMetadata'
+
+    MyListingCollectionResponse:
+      type: object
+      required:
+        - items
+        - page
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/MyListingSummary'
+        page:
+          $ref: '#/components/schemas/PageMetadata'
+
+    PageMetadata:
+      type: object
+      required:
+        - page
+        - size
+        - totalElements
+        - totalPages
+      properties:
+        page:
+          type: integer
+          examples:
+            - 0
+        size:
+          type: integer
+          examples:
+            - 20
+        totalElements:
+          type: integer
+          format: int64
+          examples:
+            - 1
+        totalPages:
+          type: integer
+          examples:
+            - 1
+
+    PublicationStatus:
+      type: string
+      enum:
+        - DRAFT
+        - ACTIVE
+        - PAUSED
+        - DELETED
+
+    ModerationStatus:
+      type: string
+      enum:
+        - VISIBLE
+        - REPORTED
+        - BLOCKED
+
+    ProblemDetails:
+      type: object
+      required:
+        - type
+        - title
+        - status
+        - detail
+        - instance
+      properties:
+        type:
+          type: string
+          format: uri
+          examples:
+            - "https://api.mira.example/problems/validation-error"
+        title:
+          type: string
+          examples:
+            - "Bad Request"
+        status:
+          type: integer
+          examples:
+            - 400
+        detail:
+          type: string
+          examples:
+            - "Request body validation failed"
+        instance:
+          type: string
+          examples:
+            - "/v1/listings"
+        errors:
+          type: array
+          description: Field-level validation errors when available.
+          items:
+            $ref: '#/components/schemas/ProblemInvalidParam'
+
+    ProblemInvalidParam:
+      type: object
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+          examples:
+            - "title"
+        message:
+          type: string
+          examples:
+            - "must not be blank"

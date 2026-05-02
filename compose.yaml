@@ -16,6 +16,7 @@ services:
       DB_HOST: postgres
     volumes:
       - .:/app
+      - backend-logs:${LOGS_DIR}
     working_dir: /app
 
   postgres:
@@ -40,3 +41,6 @@ services:
 
 volumes:
   postgres-data:
+    name: ${DB_VOLUME_NAME:-mira-db-data}
+  backend-logs:
+    name: ${BACKEND_LOGS_VOLUME_NAME:-mira-backend-logs}

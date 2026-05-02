@@ -1,0 +1,12 @@
+opencollection: 1.0.0
+info:
+  name: "MiraWorkspace"
+  type: workspace
+
+collections:
+  - name: "MiraCollection"
+    path: "collections/MiraCollection"
+
+specs:
+
+docs: ''

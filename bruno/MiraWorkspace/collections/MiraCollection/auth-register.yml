@@ -1,0 +1,30 @@
+info:
+  name: auth/register
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: http://localhost:8080/auth/register
+  headers:
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+        "username": "testuser5",
+        "email": "testuser5@example.com",
+        "rawPassword": "secret123",
+        "firstName": "Test",
+        "lastName": "User",
+        "accountType": "CUSTOMER",
+        "birthdate": "1998-05-12"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
